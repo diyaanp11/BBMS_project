@@ -1,0 +1,134 @@
+ * {
+     margin: 0;
+     padding: 0;
+     box-sizing: border-box;
+     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+ }
+
+ body {
+     background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+     min-height: 100vh;
+     display: flex;
+     justify-content: center;
+     align-items: center;
+     padding: 20px;
+ }
+
+ header {
+     background: #dc3545;
+     color: white;
+     padding: 20px;
+     text-align: center;
+ }
+
+ .container{
+    width: 100%;
+        max-width: 500px;
+        background: white;
+        border-radius: 15px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        min-height: 500px;
+ }
+ .auth-form{
+    padding-top: 20px;
+    padding-bottom: 10px;
+    padding-left: 30px;
+    padding-right: 30px;
+ }
+ .logo {
+     font-size: 28px;
+     font-weight: bold;
+     margin-bottom: 10px;
+ }
+
+ .tagline {
+     font-size: 16px;
+     opacity: 0.9;
+ }
+
+ .error {
+     color: #dc3545;
+     text-align: center;
+     margin-bottom: 15px;
+     padding: 10px;
+     background: #ffeaea;
+     border-radius: 5px;
+ }
+
+ .success {
+     color: #28a745;
+     text-align: center;
+     margin-bottom: 15px;
+     padding: 10px;
+     background: #eaffea;
+     border-radius: 5px;
+ }
+
+ .form-title {
+     font-size: 24px;
+     margin-bottom: 30px;
+     color: #343a40;
+     text-align: center;
+ }
+
+ .form-group {
+     margin-bottom: 20px;
+ }
+
+ .form-group label {
+     display: block;
+     margin-bottom: 8px;
+     font-weight: 500;
+     color: #495057;
+ }
+
+ .form-group input {
+     width: 100%;
+     padding: 12px 15px;
+     border: 1px solid #ced4da;
+     border-radius: 8px;
+     font-size: 16px;
+     transition: border-color 0.3s;
+ }
+
+ .form-group input:focus {
+     border-color: #dc3545;
+     outline: none;
+ }
+
+ .submit-btn {
+     width: 100%;
+     padding: 15px;
+     background: #dc3545;
+     color: white;
+     border: none;
+     border-radius: 8px;
+     font-size: 16px;
+     font-weight: 600;
+     cursor: pointer;
+     transition: background 0.3s;
+ }
+
+ .submit-btn:hover {
+     background: #c82333;
+ }
+
+ .switch-auth {
+     text-align: center;
+     margin-top: 20px;
+     color: #6c757d;
+ }
+
+ .switch-auth a {
+     color: #dc3545;
+     text-decoration: none;
+     font-weight: 500;
+     cursor: pointer;
+ }
+
+ .switch-auth a:hover {
+     text-decoration: underline;
+ }
