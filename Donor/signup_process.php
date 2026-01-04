@@ -6,7 +6,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $name = trim($_POST['name']);
     $email = trim($_POST['email']);
     $password = trim($_POST['password']);
-    $blood_type = trim($_POST['blood_type']); 
+    $blood_type = trim($_POST['blood_type']);
+    
+    // Convert blood type to uppercase
+    $blood_type = strtoupper($blood_type);
     
     // Server-side validation
     $errors = [];
@@ -22,7 +25,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     }
     
     // Blood type validation
-    if (!preg_match('/^(A|B|AB|O)[+-]$/i', $blood_type)) {
+    if (!preg_match('/^(A|B|AB|O)[+-]$/', $blood_type)) {
         $errors[] = 'blood_type_invalid';
     }
     
@@ -33,48 +36,54 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     
     // If there are validation errors, redirect back
     if (!empty($errors)) {
-        if (in_array('name_invalid', $errors)) {
-            header("Location: signup.php?error=name_invalid");
-        } elseif (in_array('email_invalid', $errors)) {
-            header("Location: signup.php?error=email_invalid");
-        } elseif (in_array('blood_type_invalid', $errors)) {
-            header("Location: signup.php?error=blood_type_invalid");
-        } else {
-            header("Location: signup.php?error=empty_fields");
+        // Combine all errors into URL parameters
+        $error_params = [];
+        foreach ($errors as $error) {
+            $error_params[] = "error[]=$error";
         }
+        header("Location: signup.php?" . implode('&', $error_params));
         exit();
     }
     
-    // If validation passes, continue with database operations
-    if (!empty($name) && !empty($email) && !empty($password) && !empty($blood_type)) {
-        // Check if email exists
-        $check_query = "SELECT id FROM donors WHERE email = ?";
-        $check_stmt = $conn->prepare($check_query);
-        $check_stmt->bind_param("s", $email);
-        $check_stmt->execute();
-        
-        if ($check_stmt->get_result()->num_rows > 0) {
-            header("Location: signup.php?error=email_exists");
-            exit();
-        }
-        
-        // Hash password and insert
-        $hashed_password = password_hash($password, PASSWORD_DEFAULT);
-        $insert_query = "INSERT INTO donors (full_name, email, password, blood_type) VALUES (?, ?, ?, ?)";
-        $insert_stmt = $conn->prepare($insert_query);
-        $insert_stmt->bind_param("ssss", $name, $email, $hashed_password, $blood_type);
-        
-        if ($insert_stmt->execute()) {
-            header("Location: dashboard.php?success=1");
-            exit();
-        } else {
-            header("Location: signup.php?error=signup_failed");
-            exit();
-        }
-    } else {
-        header("Location: signup.php?error=empty_fields");
+    // Check if email exists
+    $check_query = "SELECT donor_id FROM donors WHERE email = ?";
+    $check_stmt = $conn->prepare($check_query);
+    $check_stmt->bind_param("s", $email);
+    $check_stmt->execute();
+    $check_result = $check_stmt->get_result();
+    
+    if ($check_result->num_rows > 0) {
+        header("Location: signup.php?error=email_exists");
         exit();
     }
+    
+    // Hash password and insert
+    $hashed_password = password_hash($password, PASSWORD_DEFAULT);
+    $insert_query = "INSERT INTO donors (full_name, email, password, blood_type) VALUES (?, ?, ?, ?)";
+    $insert_stmt = $conn->prepare($insert_query);
+    $insert_stmt->bind_param("ssss", $name, $email, $hashed_password, $blood_type);
+    
+    if ($insert_stmt->execute()) {
+        // Get the newly created donor ID
+        $donor_id = $insert_stmt->insert_id;
+        
+        // Set session variables
+        $_SESSION['donor_id'] = $donor_id;
+        $_SESSION['donor_name'] = $name;
+        $_SESSION['donor_email'] = $email;
+        $_SESSION['blood_type'] = $blood_type;
+        $_SESSION['logged_in'] = true;
+        
+        header("Location: dashboard.php?success=1");
+        exit();
+    } else {
+        header("Location: signup.php?error=signup_failed");
+        exit();
+    }
+    
+    $check_stmt->close();
+    $insert_stmt->close();
+    $conn->close();
 } else {
     header("Location: signup.php");
     exit();

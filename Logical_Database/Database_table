@@ -44,7 +44,7 @@ CREATE TABLE blood_donations (
     admin_notes TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (donor_id) REFERENCES donors(id) ON DELETE CASCADE
+    FOREIGN KEY (donor_id) REFERENCES donors(donor_id) ON DELETE CASCADE
 );
 
 -- Blood Requests Table
@@ -62,7 +62,7 @@ CREATE TABLE blood_requests (
     status ENUM('Pending', 'Approved', 'Rejected') DEFAULT 'Pending',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (recipient_id) REFERENCES recipients(id) ON DELETE CASCADE
+    FOREIGN KEY (recipient_id) REFERENCES recipients(recipient_id) ON DELETE CASCADE
 );
 
 -- Blood Inventory Table

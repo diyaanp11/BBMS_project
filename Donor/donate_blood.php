@@ -116,12 +116,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 } else {
                     $error = "Error submitting donation request. Please try again.";
                 }
+                $stmt->close();
             }
         }
     }
 }
+$stmt_last->close();
 ?>
-
 <!DOCTYPE html>
 <html lang="en">
 <head>

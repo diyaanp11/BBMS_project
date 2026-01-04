@@ -41,8 +41,8 @@ if ($last_donation) {
 }
 // ========== END COOLDOWN CHECK ==========
 
-// Fetch donor details
-$sql_donor = "SELECT full_name, blood_type FROM donors WHERE id = ?";
+// Fetch donor details - CORRECTED: using donor_id not id
+$sql_donor = "SELECT full_name, blood_type FROM donors WHERE donor_id = ?";
 $stmt = $conn->prepare($sql_donor);
 $stmt->bind_param("i", $donor_id);
 $stmt->execute();
@@ -65,8 +65,11 @@ if ($result_blood) {
 
 // Calculate total blood
 $total_blood = array_sum($blood_data);
-?>
 
+// Close statements
+$stmt_last->close();
+$stmt->close();
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -74,7 +77,6 @@ $total_blood = array_sum($blood_data);
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Donor Dashboard - Blood Bank</title>
     <link rel="stylesheet" href="../dashboard.css">
-
 </head>
 <body>
     <div class="dashboard-container">

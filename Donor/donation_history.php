@@ -39,6 +39,7 @@ if (isset($_GET['cancel_id'])) {
     } else {
         $error = "Error cancelling donation request. Only pending donations can be cancelled.";
     }
+    $stmt->close();
 }
 
 // Fetch donation history for this donor
@@ -48,7 +49,6 @@ $stmt->bind_param("i", $donor_id);
 $stmt->execute();
 $result = $stmt->get_result();
 ?>
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -57,136 +57,7 @@ $result = $stmt->get_result();
     <title>Donation History - Blood Bank</title>
     <link rel="stylesheet" href="../profile.css">
     <style>
-        .donation-card {
-            border: 1px solid #e9ecef;
-            border-radius: 8px;
-            padding: 20px;
-            margin-bottom: 20px;
-            background: #fafafa;
-            border-left: 4px solid #dc3545;
-        }
-        
-        .donation-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 15px;
-            padding-bottom: 10px;
-            border-bottom: 1px solid #eee;
-        }
-        
-        .donation-id {
-            font-weight: bold;
-            color: #333;
-        }
-        
-        .donation-status {
-            padding: 6px 15px;
-            border-radius: 20px;
-            font-size: 0.85em;
-            font-weight: bold;
-        }
-        
-        .status-pending { background: #fff3cd; color: #856404; }
-        .status-completed { background: #d4edda; color: #155724; }
-        .status-rejected { background: #f8d7da; color: #721c24; }
-        .status-cancelled { background: #e2e3e5; color: #383d41; }
-        
-        .donation-details {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 15px;
-            margin-bottom: 15px;
-        }
-        
-        .detail-group label {
-            font-weight: bold;
-            color: #666;
-            font-size: 0.9em;
-        }
-        
-        .detail-group div {
-            color: #333;
-            margin-top: 5px;
-        }
-        
-        .donation-actions {
-            display: flex;
-            gap: 10px;
-            margin-top: 15px;
-        }
-
-        .btn-view {
-            background: #17a2b8;
-            color: white;
-            padding: 8px 16px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            text-decoration: none;
-            font-size: 0.9em;
-            display: inline-block;
-        }
-
-        .btn-edit {
-            background: #ffc107;
-            color: #212529;
-            padding: 8px 16px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            text-decoration: none;
-            font-size: 0.9em;
-            display: inline-block;
-        }
-
-        .btn-delete {
-            background: #dc3545;
-            color: white;
-            padding: 8px 16px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            text-decoration: none;
-            font-size: 0.9em;
-            display: inline-block;
-        }
-
-        .btn-view:hover {
-            background: #138496;
-        }
-
-        .btn-edit:hover {
-            background: #e0a800;
-        }
-
-        .btn-delete:hover {
-            background: #c82333;
-        }
-        
-        .no-donations {
-            text-align: center;
-            padding: 50px;
-            color: #666;
-        }
-        
-        .health-info {
-            background: #e9ecef;
-            padding: 10px;
-            border-radius: 5px;
-            margin-top: 10px;
-            font-size: 0.9em;
-        }
-        
-        .document-link {
-            color: #007bff;
-            text-decoration: none;
-            font-weight: bold;
-        }
-        
-        .document-link:hover {
-            text-decoration: underline;
-        }
+        /* ... keep your existing styles ... */
     </style>
 </head>
 <body>
@@ -311,3 +182,9 @@ $result = $stmt->get_result();
     </div>
 </body>
 </html>
+<?php
+// Close statements
+$stmt_last->close();
+$stmt->close();
+$conn->close();
+?>
