@@ -97,10 +97,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         } elseif ($quantity > $available_quantity) {
             $error = "Only $available_quantity units of $blood_type blood are available. Please reduce your request quantity.";
         } else {
-            $sql = "INSERT INTO blood_requests (recipient_id, blood_type, quantity, urgency, reason, hospital_name, patient_name, document_path, status) 
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Pending')";
-            $stmt = $conn->prepare($sql);
-            $stmt->bind_param("isssssss", $recipient_id, $blood_type, $quantity, $urgency, $reason, $hospital_name, $patient_name, $document_path);
+           $sql = "INSERT INTO blood_requests (recipient_id, blood_type, quantity, urgency, reason, hospital_name, patient_name, document_path, status) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Pending')";
+$stmt = $conn->prepare($sql);
+$stmt->bind_param("isssssss", $recipient_id, $blood_type, $quantity, $urgency, $reason, $hospital_name, $patient_name, $document_path);
             
             if ($stmt->execute()) {
                 $success = "Blood request submitted successfully! Admin will review your request.";

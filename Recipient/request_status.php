@@ -15,8 +15,8 @@ $success = $error = "";
 if (isset($_GET['delete_id'])) {
     $delete_id = $_GET['delete_id'];
     $sql = "DELETE FROM blood_requests WHERE id = ? AND recipient_id = ? AND status = 'Pending'";
-    $stmt = $conn->prepare($sql);
-    $stmt->bind_param("ii", $delete_id, $recipient_id);
+$stmt = $conn->prepare($sql);
+$stmt->bind_param("ii", $delete_id, $recipient_id);
     
     if ($stmt->execute()) {
         $success = "Request deleted successfully!";

@@ -7,26 +7,25 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $password = trim($_POST['password']);
     
     if (!empty($email) && !empty($password)) {
-        $query = "SELECT * FROM recipients WHERE email = ?";
+        $query = "SELECT recipient_id, full_name, email, password, location FROM recipients WHERE email = ?";
         $stmt = $conn->prepare($query);
         $stmt->bind_param("s", $email);
         $stmt->execute();
         $result = $stmt->get_result();
         
         if ($result->num_rows == 1) {
-            $recipient = $result->fetch_assoc(); 
+            $recipient = $result->fetch_assoc();
             
-         if (password_verify($password, $recipient['password'])) {
-    $_SESSION['recipient_id'] = $recipient['id'];
-    $_SESSION['recipient_email'] = $recipient['email'];
-    $_SESSION['recipient_name'] = $recipient['full_name']; // FIXED
-    $_SESSION['recipient_location'] = $recipient['location']; // Correct
-    $_SESSION['recipient_loggedin'] = true;
-
-    header("Location: dashboard.php");
-    exit();
-}
- else {
+            if (password_verify($password, $recipient['password'])) {
+                $_SESSION['recipient_id'] = $recipient['recipient_id'];
+                $_SESSION['recipient_email'] = $recipient['email'];
+                $_SESSION['recipient_name'] = $recipient['full_name'];
+                $_SESSION['recipient_location'] = $recipient['location'];
+                $_SESSION['recipient_loggedin'] = true;
+                
+                header("Location: dashboard.php");
+                exit();
+            } else {
                 header("Location: login.php?error=invalid_credentials");
                 exit();
             }
@@ -34,6 +33,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             header("Location: login.php?error=invalid_credentials");
             exit();
         }
+        $stmt->close();
     } else {
         header("Location: login.php?error=empty_fields");
         exit();

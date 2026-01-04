@@ -3,19 +3,20 @@ session_start();
 include '../Logical_Database/connection.php';
 
 // Check if recipient is logged in
-if (!isset($_SESSION['recipient_id'])) {
+if (!isset($_SESSION['recipient_loggedin']) || $_SESSION['recipient_loggedin'] !== true) {
     header("Location: login.php");
     exit();
 }
 
 // Fetch recipient details
 $recipient_id = $_SESSION['recipient_id'];
-$sql_recipient = "SELECT full_name, location FROM recipients WHERE id = ?";
+$sql_recipient = "SELECT full_name, location FROM recipients WHERE recipient_id = ?";
 $stmt = $conn->prepare($sql_recipient);
 $stmt->bind_param("i", $recipient_id);
 $stmt->execute();
 $result = $stmt->get_result();
 $recipient = $result->fetch_assoc();
+$stmt->close();
 
 // Fetch blood inventory
 $blood_data = [
@@ -35,8 +36,15 @@ if ($result_blood) {
 $total_blood = array_sum($blood_data);
 
 // Get recipient's pending requests
-$pending_requests = $conn->query("SELECT COUNT(*) as count FROM blood_requests WHERE recipient_id = $recipient_id AND status='Pending'")->fetch_assoc()['count'];
-// $pending_requests = 0; // Placeholder if no requests table exists
+$pending_sql = "SELECT COUNT(*) as count FROM blood_requests WHERE recipient_id = ? AND status='Pending'";
+$pending_stmt = $conn->prepare($pending_sql);
+$pending_stmt->bind_param("i", $recipient_id);
+$pending_stmt->execute();
+$pending_result = $pending_stmt->get_result();
+$pending_requests = $pending_result->fetch_assoc()['count'] ?? 0;
+$pending_stmt->close();
+
+$conn->close();
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -45,7 +53,7 @@ $pending_requests = $conn->query("SELECT COUNT(*) as count FROM blood_requests W
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Recipient Dashboard - Blood Bank</title>
     <link rel="stylesheet" href="../dashboard.css">
-    </head>
+</head>
 <body>
     <div class="dashboard-container">
         <!-- Sidebar -->
@@ -58,9 +66,10 @@ $pending_requests = $conn->query("SELECT COUNT(*) as count FROM blood_requests W
                 <li><a href="logout.php">Logout</a></li>
             </ul>
         </div>
+
         <!-- Main Content -->
         <div class="main-content">
-            <!-- Welcome Section -->    
+            <!-- Welcome Section -->
             <div class="welcome-box">
                 <h1>WELCOME BACK, <?php echo strtoupper($recipient['full_name']); ?>!</h1>
                 <p>Location: <strong><?php echo $recipient['location']; ?></strong> | Find the blood you need</p>
@@ -68,7 +77,6 @@ $pending_requests = $conn->query("SELECT COUNT(*) as count FROM blood_requests W
             
             <!-- Blood Availability Grid -->
             <div class="blood-grid">
-                <!-- COPY THE EXACT SAME BLOOD GRID FROM DONOR DASHBOARD -->
                 <!-- Blood Type A+ -->
                 <div class="blood-card">
                     <div class="blood-type">A+</div>

@@ -18,8 +18,8 @@ $request_id = $_GET['id'] ?? 0;
 $request_data = null;
 if ($request_id) {
     $sql = "SELECT * FROM blood_requests WHERE id = ? AND recipient_id = ? AND status = 'Pending'";
-    $stmt = $conn->prepare($sql);
-    $stmt->bind_param("ii", $request_id, $recipient_id);
+$stmt = $conn->prepare($sql);
+$stmt->bind_param("ii", $request_id, $recipient_id);
     $stmt->execute();
     $result = $stmt->get_result();
     $request_data = $result->fetch_assoc();
@@ -118,17 +118,17 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 exit();
             } else {
                 $sql = "UPDATE blood_requests SET 
-                        patient_name = ?, 
-                        hospital_name = ?, 
-                        blood_type = ?, 
-                        quantity = ?, 
-                        urgency = ?, 
-                        reason = ?,
-                        document_path = ?,
-                        updated_at = NOW() 
-                        WHERE id = ? AND recipient_id = ? AND status = 'Pending'";
-                $stmt = $conn->prepare($sql);
-                $stmt->bind_param("sssssssii", $patient_name, $hospital, $blood_type, $quantity, $urgency, $reason, $document_path, $request_id, $recipient_id);
+        patient_name = ?, 
+        hospital_name = ?, 
+        blood_type = ?, 
+        quantity = ?, 
+        urgency = ?, 
+        reason = ?,
+        document_path = ?,
+        updated_at = NOW() 
+        WHERE id = ? AND recipient_id = ? AND status = 'Pending'";
+$stmt = $conn->prepare($sql);
+$stmt->bind_param("sssssssii", $patient_name, $hospital, $blood_type, $quantity, $urgency, $reason, $document_path, $request_id, $recipient_id);
                 
                 if ($stmt->execute()) {
                     echo json_encode(['success' => true, 'message' => 'Blood request updated successfully!']);

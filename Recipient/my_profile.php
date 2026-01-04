@@ -2,7 +2,7 @@
 session_start();
 
 // Check if recipient is logged in
-if (!isset($_SESSION['recipient_id'])) {
+if (!isset($_SESSION['recipient_loggedin']) || $_SESSION['recipient_loggedin'] !== true) {
     header("Location: login.php");
     exit();
 }
