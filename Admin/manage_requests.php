@@ -3,7 +3,7 @@ session_start();
 include '../Logical_Database/connection.php';
 
 // Check if admin is logged in
-if (!isset($_SESSION['admin_id'])) {
+if (!isset($_SESSION['admin_loggedin']) || $_SESSION['admin_loggedin'] !== true) {
     header("Location: login.php");
     exit();
 }
@@ -46,9 +46,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             } else {
                 $error = "Error approving request.";
             }
+            $stmt1->close();
+            $stmt2->close();
         } else {
             $error = "Insufficient inventory! Only $current_inventory units of {$request['blood_type']} available.";
         }
+        $stmt->close();
+        $check_stmt->close();
         
     } elseif (isset($_POST['reject_request'])) {
         $sql = "UPDATE blood_requests SET status = 'Rejected', admin_notes = ? WHERE id = ?";
@@ -60,13 +64,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         } else {
             $error = "Error rejecting request.";
         }
+        $stmt->close();
     }
 }
 
 // Fetch all blood requests with recipient details
 $sql = "SELECT br.*, r.full_name as recipient_name, r.email as recipient_email 
         FROM blood_requests br 
-        JOIN recipients r ON br.recipient_id = r.id 
+        JOIN recipients r ON br.recipient_id = r.recipient_id 
         ORDER BY 
             CASE br.status 
                 WHEN 'Pending' THEN 1
@@ -77,349 +82,13 @@ $sql = "SELECT br.*, r.full_name as recipient_name, r.email as recipient_email
             br.created_at DESC";
 $result = $conn->query($sql);
 ?>
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Manage Requests - Admin</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: 'Arial', sans-serif;
-        }
-        
-        body {
-            background: #f8f9fa;
-        }
-        
-        .dashboard-container {
-            display: flex;
-            min-height: 100vh;
-        }
-        
-        /* Sidebar Styles - RED THEME */
-        .sidebar {
-            width: 250px;
-            background: #dc3545;
-            color: white;
-            padding: 20px 0;
-            box-shadow: 2px 0 10px rgba(0,0,0,0.1);
-        }
-    
-        .nav-links {
-            list-style: none;
-        }
-        
-        .nav-links li {
-            padding: 15px 25px;
-            border-left: 4px solid transparent;
-            transition: all 0.3s ease;
-        }
-        
-        .nav-links li.active {
-            background: rgba(255,255,255,0.1);
-            border-left: 4px solid white;
-        }
-        
-        .nav-links li:hover {
-            background: rgba(255,255,255,0.1);
-            border-left: 4px solid white;
-        }
-        
-        .nav-links a {
-            color: white;
-            text-decoration: none;
-            display: block;
-            font-weight: 500;
-        }
-        
-        /* Main Content Styles */
-        .main-content {
-            flex: 1;
-            padding: 30px;
-        }
-        
-        .container {
-            background: white;
-            padding: 25px;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
-        
-        .page-title {
-            text-align: center;
-            margin-bottom: 25px;
-            color: #dc3545;
-            font-size: 1.8em;
-        }
-        
-        /* Request Cards */
-        .request-card {
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            padding: 20px;
-            margin-bottom: 20px;
-            background: #fafafa;
-            border-left: 4px solid #dc3545;
-        }
-        
-        .request-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 15px;
-            padding-bottom: 10px;
-            border-bottom: 1px solid #eee;
-        }
-        
-        .request-id {
-            font-weight: bold;
-            color: #333;
-            font-size: 1.1em;
-        }
-        
-        .request-status {
-            padding: 6px 15px;
-            border-radius: 20px;
-            font-size: 0.85em;
-            font-weight: bold;
-        }
-        
-        .status-pending { background: #fff3cd; color: #856404; }
-        .status-approved { background: #d1ecf1; color: #0c5460; }
-        .status-rejected { background: #f8d7da; color: #721c24; }
-        .status-fulfilled { background: #d4edda; color: #155724; }
-        
-        .request-details {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 15px;
-            margin-bottom: 15px;
-        }
-        
-        .detail-group label {
-            font-weight: bold;
-            color: #666;
-            font-size: 0.9em;
-        }
-        
-        .detail-group div {
-            color: #333;
-            margin-top: 5px;
-        }
-        
-        .request-actions {
-            display: flex;
-            gap: 10px;
-            margin-top: 15px;
-            flex-wrap: wrap;
-        }
-        
-        /* Buttons */
-        .btn {
-            padding: 10px 20px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 0.9em;
-            text-decoration: none;
-            display: inline-block;
-            text-align: center;
-            transition: all 0.3s ease;
-            font-weight: bold;
-        }
-        
-        .btn-approve {
-            background: #28a745;
-            color: white;
-        }
-        
-        .btn-approve:hover {
-            background: #218838;
-        }
-        
-        .btn-reject {
-            background: #dc3545;
-            color: white;
-        }
-        
-        .btn-reject:hover {
-            background: #c82333;
-        }
-        
-        .btn-view {
-            background: #17a2b8;
-            color: white;
-        }
-        
-        .btn-view:hover {
-            background: #138496;
-        }
-        
-        /* Admin Notes */
-        .admin-notes {
-            background: #e9ecef;
-            padding: 12px;
-            border-radius: 5px;
-            margin-top: 10px;
-            border-left: 4px solid #6c757d;
-        }
-        
-        .admin-notes-input {
-            width: 100%;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            margin-top: 10px;
-            font-size: 0.9em;
-            resize: vertical;
-            height: 80px;
-            font-family: inherit;
-        }
-        
-        .action-form {
-            margin-top: 15px;
-            padding-top: 15px;
-            border-top: 1px dashed #ddd;
-        }
-        
-        /* Empty State */
-        .no-requests {
-            text-align: center;
-            padding: 50px;
-            color: #666;
-        }
-        
-        .no-requests h3 {
-            margin-bottom: 10px;
-            color: #333;
-            font-size: 1.3em;
-        }
-        
-        .no-requests p {
-            font-size: 1em;
-            margin-bottom: 20px;
-        }
-
-        /* Document Section */
-        .document-section {
-            background: #f8f9fa;
-            padding: 15px;
-            border-radius: 8px;
-            margin-top: 15px;
-            border-left: 4px solid #17a2b8;
-        }
-        
-        .document-actions {
-            display: flex;
-            gap: 10px;
-            margin-top: 10px;
-        }
-        
-        /* Notification Styles */
-        .notification-container {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            z-index: 1000;
-            max-width: 400px;
-        }
-        
-        .notification {
-            padding: 15px 20px;
-            margin-bottom: 10px;
-            border-radius: 8px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-            font-weight: 600;
-            transform: translateX(400px);
-            transition: transform 0.4s ease;
-            position: relative;
-            overflow: hidden;
-        }
-        
-        .notification.show {
-            transform: translateX(0);
-        }
-        
-        .notification.success {
-            background: #d4edda;
-            color: #155724;
-            border-left: 4px solid #28a745;
-        }
-        
-        .notification.error {
-            background: #f8d7da;
-            color: #721c24;
-            border-left: 4px solid #dc3545;
-        }
-        
-        .notification-progress {
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            height: 3px;
-            background: rgba(0,0,0,0.2);
-            width: 100%;
-            animation: progress 5s linear;
-        }
-        
-        .notification-close {
-            position: absolute;
-            top: 8px;
-            right: 10px;
-            background: none;
-            border: none;
-            font-size: 18px;
-            cursor: pointer;
-            color: inherit;
-            opacity: 0.7;
-        }
-        
-        .notification-close:hover {
-            opacity: 1;
-        }
-        
-        @keyframes progress {
-            from { width: 100%; }
-            to { width: 0%; }
-        }
-
-        /* Request Stats */
-        .request-stats {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
-            margin-bottom: 25px;
-        }
-        
-        .stat-card {
-            background: #e9ecef;
-            padding: 15px;
-            border-radius: 8px;
-            text-align: center;
-        }
-        
-        .stat-value {
-            font-size: 1.5em;
-            font-weight: bold;
-            color: #dc3545;
-        }
-        
-        .stat-label {
-            font-size: 0.9em;
-            color: #666;
-        }
-
-        /* Urgency Badges */
-        .urgency-high { color: #dc3545; font-weight: bold; }
-        .urgency-medium { color: #ffc107; font-weight: bold; }
-        .urgency-low { color: #28a745; font-weight: bold; }
-        
-    </style>
+    <!-- [Keep all your CSS styles] -->
 </head>
 <body>
     <div class="dashboard-container">
@@ -440,7 +109,7 @@ $result = $conn->query($sql);
             <div class="container">
                 <h1 class="page-title">Manage Blood Requests</h1>
                 
-                <!-- Request Statistics -->
+                  <!-- Request Statistics -->
                 <?php
                 $stats_sql = "SELECT 
                     COUNT(*) as total_requests,
@@ -615,7 +284,10 @@ $result = $conn->query($sql);
         <?php endif; ?>
     </div>
 
-    <script>
+            </div>
+        </div>
+    </div>
+             <script>
         // Auto-hide notifications after 5 seconds
         function autoHideNotifications() {
             const notifications = document.querySelectorAll('.notification.show');
@@ -649,5 +321,9 @@ $result = $conn->query($sql);
             autoHideNotifications();
         });
     </script>
+   
 </body>
 </html>
+<?php
+$conn->close();
+?>

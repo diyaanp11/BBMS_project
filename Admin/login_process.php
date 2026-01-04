@@ -7,7 +7,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $password = trim($_POST['password']);
     
     if (!empty($email) && !empty($password)) {
-        $query = "SELECT * FROM admins WHERE email = ?";
+        $query = "SELECT admin_id, username, email, password FROM admins WHERE email = ?";
         $stmt = $conn->prepare($query);
         $stmt->bind_param("s", $email);
         $stmt->execute();
@@ -16,13 +16,15 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         if ($result->num_rows == 1) {
             $admin = $result->fetch_assoc();
             
+            // NOTE: You should use password_hash() for storing passwords
+            // This is just for demo - in production, use password_verify()
             if ($password === $admin['password']) {
-                $_SESSION['admin_id'] = $admin['id'];
+                $_SESSION['admin_id'] = $admin['admin_id'];
                 $_SESSION['admin_email'] = $admin['email'];
                 $_SESSION['admin_name'] = $admin['username'];
                 $_SESSION['admin_loggedin'] = true;
                 
-                header("Location: dashboard.php"); // Redirect to admin dashboard
+                header("Location: dashboard.php");
                 exit();
             } else {
                 header("Location: login.php?error=invalid_credentials");
@@ -32,6 +34,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             header("Location: login.php?error=invalid_credentials");
             exit();
         }
+        $stmt->close();
     } else {
         header("Location: login.php?error=empty_fields");
         exit();

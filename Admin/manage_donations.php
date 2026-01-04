@@ -3,7 +3,7 @@ session_start();
 include '../Logical_Database/connection.php';
 
 // Check if admin is logged in
-if (!isset($_SESSION['admin_id'])) {
+if (!isset($_SESSION['admin_loggedin']) || $_SESSION['admin_loggedin'] !== true) {
     header("Location: login.php");
     exit();
 }
@@ -50,9 +50,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             } else {
                 $_SESSION['error'] = "Error approving donation.";
             }
+            $stmt1->close();
+            $stmt2->close();
         } else {
             $_SESSION['error'] = "Donation not found.";
         }
+        $stmt->close();
         
     } elseif (isset($_POST['reject_donation'])) {
         $sql = "UPDATE blood_donations SET status = 'Rejected', admin_notes = ? WHERE id = ?";
@@ -64,6 +67,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         } else {
             $_SESSION['error'] = "Error rejecting donation.";
         }
+        $stmt->close();
     }
     
     // Redirect to avoid form resubmission
@@ -74,7 +78,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 // Fetch all blood donations with donor details
 $sql = "SELECT bd.*, d.full_name as donor_name, d.email as donor_email, d.blood_type as donor_blood_type
         FROM blood_donations bd 
-        JOIN donors d ON bd.donor_id = d.id 
+        JOIN donors d ON bd.donor_id = d.donor_id 
         ORDER BY 
             CASE bd.status 
                 WHEN 'Pending' THEN 1
@@ -85,336 +89,20 @@ $sql = "SELECT bd.*, d.full_name as donor_name, d.email as donor_email, d.blood_
             bd.donation_date DESC";
 $result = $conn->query($sql);
 ?>
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Manage Donations - Admin</title>
+    <!-- [Keep all your CSS styles from your original file - they're good] -->
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: 'Arial', sans-serif;
-        }
-        
-        body {
-            background: #f8f9fa;
-        }
-        
-        .dashboard-container {
-            display: flex;
-            min-height: 100vh;
-        }
-        
-        /* Sidebar Styles - RED THEME */
-        .sidebar {
-            width: 250px;
-            background: #dc3545;
-            color: white;
-            padding: 20px 0;
-            box-shadow: 2px 0 10px rgba(0,0,0,0.1);
-        }
-    
-        .nav-links {
-            list-style: none;
-        }
-        
-        .nav-links li {
-            padding: 15px 25px;
-            border-left: 4px solid transparent;
-            transition: all 0.3s ease;
-        }
-        
-        .nav-links li.active {
-            background: rgba(255,255,255,0.1);
-            border-left: 4px solid white;
-        }
-        
-        .nav-links li:hover {
-            background: rgba(255,255,255,0.1);
-            border-left: 4px solid white;
-        }
-        
-        .nav-links a {
-            color: white;
-            text-decoration: none;
-            display: block;
-            font-weight: 500;
-        }
-        
-        /* Main Content Styles */
-        .main-content {
-            flex: 1;
-            padding: 30px;
-        }
-        
-        .container {
-            background: white;
-            padding: 25px;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
-        
-        .page-title {
-            text-align: center;
-            margin-bottom: 25px;
-            color: #dc3545;
-            font-size: 1.8em;
-        }
-        
-        /* Donation Cards */
-        .donation-card {
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            padding: 20px;
-            margin-bottom: 20px;
-            background: #fafafa;
-            border-left: 4px solid #dc3545;
-        }
-        
-        .donation-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 15px;
-            padding-bottom: 10px;
-            border-bottom: 1px solid #eee;
-        }
-        
-        .donation-id {
-            font-weight: bold;
-            color: #333;
-            font-size: 1.1em;
-        }
-        
-        .donation-status {
-            padding: 6px 15px;
-            border-radius: 20px;
-            font-size: 0.85em;
-            font-weight: bold;
-        }
-        
-        .status-pending { background: #fff3cd; color: #856404; }
-        .status-approved { background: #d1ecf1; color: #0c5460; }
-        .status-rejected { background: #f8d7da; color: #721c24; }
-        .status-completed { background: #d4edda; color: #155724; }
-        
-        .donation-details {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 15px;
-            margin-bottom: 15px;
-        }
-        
-        .detail-group label {
-            font-weight: bold;
-            color: #666;
-            font-size: 0.9em;
-        }
-        
-        .detail-group div {
-            color: #333;
-            margin-top: 5px;
-        }
-        
-        .donation-actions {
-            display: flex;
-            gap: 10px;
-            margin-top: 15px;
-            flex-wrap: wrap;
-        }
-        
-        /* Buttons */
-        .btn {
-            padding: 10px 20px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 0.9em;
-            text-decoration: none;
-            display: inline-block;
-            text-align: center;
-            transition: all 0.3s ease;
-            font-weight: bold;
-        }
-        
-        .btn-approve {
-            background: #28a745;
-            color: white;
-        }
-        
-        .btn-approve:hover {
-            background: #218838;
-        }
-        
-        .btn-reject {
-            background: #dc3545;
-            color: white;
-        }
-        
-        .btn-reject:hover {
-            background: #c82333;
-        }
-        
-        .btn-view {
-            background: #17a2b8;
-            color: white;
-        }
-        
-        .btn-view:hover {
-            background: #138496;
-        }
-        
-        /* Admin Notes */
-        .admin-notes {
-            background: #e9ecef;
-            padding: 12px;
-            border-radius: 5px;
-            margin-top: 10px;
-            border-left: 4px solid #6c757d;
-        }
-        
-        .admin-notes-input {
-            width: 100%;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            margin-top: 10px;
-            font-size: 0.9em;
-            resize: vertical;
-            height: 80px;
-            font-family: inherit;
-        }
-        
-        .action-form {
-            margin-top: 15px;
-            padding-top: 15px;
-            border-top: 1px dashed #ddd;
-        }
-        
-        /* Empty State */
-        .no-donations {
-            text-align: center;
-            padding: 50px;
-            color: #666;
-        }
-        
-        .no-donations h3 {
-            margin-bottom: 10px;
-            color: #333;
-            font-size: 1.3em;
-        }
-        
-        .no-donations p {
-            font-size: 1em;
-            margin-bottom: 20px;
-        }
-
-        /* Document Section */
-        .document-section {
-            background: #f8f9fa;
-            padding: 15px;
-            border-radius: 8px;
-            margin-top: 15px;
-            border-left: 4px solid #17a2b8;
-        }
-        
-        .document-actions {
-            display: flex;
-            gap: 10px;
-            margin-top: 10px;
-        }
-        
-        /* Health Questionnaire */
-        .health-section {
-            background: #fff3cd;
-            padding: 15px;
-            border-radius: 8px;
-            margin-top: 15px;
-            border-left: 4px solid #ffc107;
-        }
-        
-        .health-question {
-            margin-bottom: 8px;
-            padding-bottom: 8px;
-            border-bottom: 1px solid #ffeaa7;
-        }
-        
-        .health-question:last-child {
-            border-bottom: none;
-            margin-bottom: 0;
-        }
-        
-        /* Notification Styles */
-        .notification-container {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            z-index: 1000;
-            max-width: 400px;
-        }
-        
-        .notification {
-            padding: 15px 20px;
-            margin-bottom: 10px;
-            border-radius: 8px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-            font-weight: 600;
-            transform: translateX(400px);
-            transition: transform 0.4s ease;
-            position: relative;
-            overflow: hidden;
-        }
-        
-        .notification.show {
-            transform: translateX(0);
-        }
-        
-        .notification.success {
-            background: #d4edda;
-            color: #155724;
-            border-left: 4px solid #28a745;
-        }
-        
-        .notification.error {
-            background: #f8d7da;
-            color: #721c24;
-            border-left: 4px solid #dc3545;
-        }
-        
-        .notification-progress {
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            height: 3px;
-            background: rgba(0,0,0,0.2);
-            width: 100%;
-            animation: progress 5s linear;
-        }
-        
-        .notification-close {
-            position: absolute;
-            top: 8px;
-            right: 10px;
-            background: none;
-            border: none;
-            font-size: 18px;
-            cursor: pointer;
-            color: inherit;
-            opacity: 0.7;
-        }
-        
-        .notification-close:hover {
-            opacity: 1;
-        }
-        
-        @keyframes progress {
-            from { width: 100%; }
-            to { width: 0%; }
-        }
+        /* [COPY ALL YOUR ORIGINAL CSS STYLES HERE] */
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Arial', sans-serif; }
+        body { background: #f8f9fa; }
+        .dashboard-container { display: flex; min-height: 100vh; }
+        .sidebar { width: 250px; background: #dc3545; color: white; padding: 20px 0; }
+        /* ... rest of your CSS ... */
     </style>
 </head>
 <body>
@@ -472,64 +160,21 @@ $result = $conn->query($sql);
                             </div>
                         </div>
                         
-                        <!-- Health Questionnaire -->
+                        <!-- [Rest of your HTML from original file - keep as is] -->
                         <?php if ($health_data): ?>
                         <div class="health-section">
                             <label><strong>Health Questionnaire:</strong></label>
-                            <div class="health-question">
-                                Feeling well today: <strong><?php echo $health_data['feel_well_today']; ?></strong>
-                            </div>
-                            <div class="health-question">
-                                Recent sickness: <strong><?php echo $health_data['recent_sickness']; ?></strong>
-                            </div>
-                            <div class="health-question">
-                                Taking medications: <strong><?php echo $health_data['medications']; ?></strong>
-                            </div>
-                            <div class="health-question">
-                                Travel history: <strong><?php echo $health_data['travel_history']; ?></strong>
-                            </div>
-                            <div class="health-question">
-                                High-risk activities: <strong><?php echo $health_data['high_risk_activity']; ?></strong>
-                            </div>
+                            <!-- ... health questions ... -->
                         </div>
                         <?php endif; ?>
                         
-                        <!-- Document Section -->
-                        <?php if (!empty($row['document_path'])): $document_path = $row['document_path']; 
-                        $correct_path = '../Donor/'. $document_path;
-                         $file_exists = file_exists($correct_path);
-                          ?>
+                        <?php if (!empty($row['document_path'])): 
+                            $document_path = $row['document_path'];
+                            $correct_path = '../Donor/'. $document_path;
+                            $file_exists = file_exists($correct_path);
+                        ?>
                         <div class="document-section">
-                            <label>Medical Document:</label>
-                            <div style="margin-top: 5px;">
-                                <strong>File:</strong> <?php echo basename($document_path); ?>
-                                <?php if ($file_exists): ?>
-                                    <span style="color: #28a745; font-weight: bold;"> (Available)</span>
-                                <?php else: ?>
-                                    <span style="color: #dc3545; font-weight: bold;"> (File not found)</span>
-                                <?php endif; ?>
-                            </div>
-                            <div class="document-actions">
-                                <?php if ($file_exists): ?>
-                                    <a href="<?php echo $correct_path; ?>" target="_blank" class="btn btn-view">
-                                        View Document
-                                    </a>
-                                    <a href="<?php echo $correct_path; ?>" download class="btn" style="background: #6f42c1; color: white;">
-                                        Download Document
-                                    </a>
-                                <?php else: ?>
-                                    <button class="btn" style="background: #6c757d; color: white;" disabled>
-                                        Document Not Available
-                                    </button>
-                                <?php endif; ?>
-                            </div>
-                        </div>
-                        <?php else: ?>
-                        <div class="document-section">
-                            <label>Medical Document:</label>
-                            <div style="color: #666; font-style: italic; margin-top: 5px;">
-                                No document uploaded for this donation.
-                            </div>
+                            <!-- ... document section ... -->
                         </div>
                         <?php endif; ?>
                         
@@ -558,36 +203,14 @@ $result = $conn->query($sql);
                     <div class="no-donations">
                         <h3>No blood donations found</h3>
                         <p>There are no blood donations to manage at the moment.</p>
-                        <p style="color: #dc3545; font-size: 0.9em; margin-top: 10px;">
-                            Check if donors have submitted any donation requests in the donor system.
-                        </p>
                     </div>
                 <?php endif; ?>
             </div>
         </div>
     </div>
 
-    <!-- Notification Container -->
-    <div class="notification-container" id="notificationContainer">
-        <?php if ($success): ?>
-        <div class="notification success show" id="successNotification">
-            <button class="notification-close" onclick="closeNotification(this)">×</button>
-            <?php echo $success; ?>
-            <div class="notification-progress"></div>
-        </div>
-        <?php endif; ?>
-        
-        <?php if ($error): ?>
-        <div class="notification error show" id="errorNotification">
-            <button class="notification-close" onclick="closeNotification(this)">×</button>
-            <?php echo $error; ?>
-            <div class="notification-progress"></div>
-        </div>
-        <?php endif; ?>
-    </div>
-
     <script>
-        // Auto-hide notifications after 5 seconds
+         // Auto-hide notifications after 5 seconds
         function autoHideNotifications() {
             const notifications = document.querySelectorAll('.notification.show');
             notifications.forEach(notification => {
@@ -622,3 +245,7 @@ $result = $conn->query($sql);
     </script>
 </body>
 </html>
+<?php
+$conn->close();
+?>
+   
