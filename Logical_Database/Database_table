@@ -4,7 +4,7 @@ USE blood_bank_system;
 
 -- Admins Table
 CREATE TABLE admins (
-    id INT PRIMARY KEY AUTO_INCREMENT,
+    admin_id INT PRIMARY KEY AUTO_INCREMENT,
     username VARCHAR(50) UNIQUE NOT NULL,
     email VARCHAR(100) UNIQUE NOT NULL,
     password VARCHAR(255) NOT NULL,
@@ -13,7 +13,7 @@ CREATE TABLE admins (
 
 -- Donors Table
 CREATE TABLE donors (
-    id INT PRIMARY KEY AUTO_INCREMENT,
+    donor_id INT PRIMARY KEY AUTO_INCREMENT,
     full_name VARCHAR(100) NOT NULL,
     email VARCHAR(100) UNIQUE NOT NULL,
     password VARCHAR(255) NOT NULL,
@@ -23,7 +23,7 @@ CREATE TABLE donors (
 
 -- Recipients Table
 CREATE TABLE recipients (
-    id INT PRIMARY KEY AUTO_INCREMENT,
+    recipient_id INT PRIMARY KEY AUTO_INCREMENT,
     full_name VARCHAR(100) NOT NULL,
     email VARCHAR(100) UNIQUE NOT NULL,
     password VARCHAR(255) NOT NULL,
@@ -33,7 +33,7 @@ CREATE TABLE recipients (
 
 -- Blood Donations Table
 CREATE TABLE blood_donations (
-    id INT PRIMARY KEY AUTO_INCREMENT,
+    donation_id INT PRIMARY KEY AUTO_INCREMENT,
     donor_id INT NOT NULL,
     blood_type VARCHAR(3) NOT NULL,
     donation_date DATE NOT NULL,
@@ -49,7 +49,7 @@ CREATE TABLE blood_donations (
 
 -- Blood Requests Table
 CREATE TABLE blood_requests (
-    id INT PRIMARY KEY AUTO_INCREMENT,
+    request_id INT PRIMARY KEY AUTO_INCREMENT,
     recipient_id INT NOT NULL,
     blood_type VARCHAR(3) NOT NULL,
     quantity INT NOT NULL,
