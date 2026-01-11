@@ -41,6 +41,21 @@ if ($last_donation) {
 }
 // ========== END COOLDOWN CHECK ==========
 
+// ========== CHECK FOR PENDING DONATIONS ==========
+$has_pending = false;
+$sql_check_pending = "SELECT COUNT(*) as pending_count FROM blood_donations 
+                      WHERE donor_id = ? AND status = 'Pending'";
+$stmt_pending = $conn->prepare($sql_check_pending);
+$stmt_pending->bind_param("i", $donor_id);
+$stmt_pending->execute();
+$pending_result = $stmt_pending->get_result();
+$pending_data = $pending_result->fetch_assoc();
+
+if ($pending_data['pending_count'] > 0) {
+    $has_pending = true;
+}
+// ========== END CHECK FOR PENDING DONATIONS ==========
+
 // Fetch donor details - CORRECTED: using donor_id not id
 $sql_donor = "SELECT full_name, blood_type FROM donors WHERE donor_id = ?";
 $stmt = $conn->prepare($sql_donor);
@@ -69,6 +84,9 @@ $total_blood = array_sum($blood_data);
 // Close statements
 $stmt_last->close();
 $stmt->close();
+if (isset($stmt_pending)) {
+    $stmt_pending->close();
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -103,7 +121,14 @@ $stmt->close();
             <div class="eligibility-card" style="background: white; padding: 20px; border-radius: 10px; margin-bottom: 25px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); border-left: 4px solid <?php echo $is_eligible ? '#28a745' : '#dc3545'; ?>;">
                 <h3 style="color: #333; margin-bottom: 10px;">Donation Eligibility Status</h3>
                 
-                <?php if ($is_eligible): ?>
+                <?php if ($has_pending): ?>
+                    <div style="color: #ffc107; font-weight: bold; font-size: 1.1em;">
+                         PENDING DONATION REQUEST
+                    </div>
+                    <p style="color: #666; margin-top: 5px;">
+                        You have a pending donation request. Please wait for admin approval or cancel it before submitting a new one.
+                    </p>
+                <?php elseif ($is_eligible): ?>
                     <div style="color: #28a745; font-weight: bold; font-size: 1.1em;">
                          ELIGIBLE TO DONATE
                     </div>

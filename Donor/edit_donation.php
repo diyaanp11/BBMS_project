@@ -15,7 +15,7 @@ $min_days_between_donations = 56; // WHO recommends 56 days (8 weeks)
 
 // Get last approved donation date (excluding current one being edited)
 $sql_last_donation = "SELECT donation_date FROM blood_donations 
-                      WHERE donor_id = ? AND status = 'Approved' AND id != ? 
+                      WHERE donor_id = ? AND status = 'Approved' AND donation_id != ? 
                       ORDER BY donation_date DESC LIMIT 1";
 // We'll prepare this later after we get the donation_id
 // ========== END COOLDOWN CHECK ==========
@@ -28,7 +28,8 @@ $donation_id = $_GET['id'] ?? 0;
 // Fetch existing donation data
 $donation_data = null;
 if ($donation_id) {
-    $sql = "SELECT * FROM blood_donations WHERE id = ? AND donor_id = ? AND status = 'Pending'";
+    // FIXED: Changed 'id' to 'donation_id' in WHERE clause
+    $sql = "SELECT * FROM blood_donations WHERE donation_id = ? AND donor_id = ? AND status = 'Pending'";
     $stmt = $conn->prepare($sql);
     $stmt->bind_param("ii", $donation_id, $donor_id);
     $stmt->execute();
@@ -38,6 +39,12 @@ if ($donation_id) {
     if (!$donation_data) {
         header("Location: donation_history.php");
         exit();
+    }
+    
+    // Decode health questionnaire if it exists
+    $health_data = [];
+    if (!empty($donation_data['health_questionnaire'])) {
+        $health_data = json_decode($donation_data['health_questionnaire'], true);
     }
     
     // Now check cooldown with current donation_id
@@ -127,13 +134,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         } elseif ($health_data['recent_sickness'] == 'Yes') {
             $response = ['success' => false, 'message' => "You cannot donate if you've been sick recently."];
         } else {
+            // FIXED: Changed 'id' to 'donation_id' in WHERE clause
             $sql = "UPDATE blood_donations SET 
                     donation_date = ?, 
                     quantity = ?, 
                     health_questionnaire = ?, 
                     document_path = ?,
                     updated_at = NOW() 
-                    WHERE id = ? AND donor_id = ? AND status = 'Pending'";
+                    WHERE donation_id = ? AND donor_id = ? AND status = 'Pending'";
 
             $stmt = $conn->prepare($sql);
             $stmt->bind_param("sissii", $donation_date, $quantity, $health_questionnaire, $document_path, $donation_id, $donor_id);
@@ -372,6 +380,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             margin-bottom: 20px;
             border: 1px solid #f5c6cb;
         }
+        
+        .section-title {
+            margin: 25px 0 15px 0;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #eee;
+            color: #2c3e50;
+            font-size: 18px;
+        }
     </style>
 </head>
 <body>
@@ -404,14 +420,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 <div class="form-group">
                     <div class="form-label">Donor Name</div>
                     <div style="padding: 12px 16px; background: #f8f9fa; border-radius: 8px; border: 2px solid #e9ecef;">
-                        <?php echo $_SESSION['donor_name']; ?>
+                        <?php echo htmlspecialchars($_SESSION['donor_name'] ?? 'N/A'); ?>
                     </div>
                 </div>
                 
                 <div class="form-group">
                     <div class="form-label">Blood Type</div>
                     <div style="padding: 12px 16px; background: #f8f9fa; border-radius: 8px; border: 2px solid #e9ecef;">
-                        <?php echo $_SESSION['blood_type']; ?>
+                        <?php echo htmlspecialchars($_SESSION['blood_type'] ?? 'N/A'); ?>
                     </div>
                 </div>
 
@@ -419,7 +435,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 <div class="form-group">
                     <label class="form-label">Preferred Donation Date *</label>
                     <input type="date" class="form-input" id="edit-donation-date" name="donation_date" 
-                           value="<?php echo $donation_data['donation_date'] ?? ''; ?>" required 
+                           value="<?php echo htmlspecialchars($donation_data['donation_date'] ?? ''); ?>" required 
                            min="<?php echo date('Y-m-d'); ?>" <?php echo !$is_eligible ? 'disabled' : ''; ?>>
                 </div>
                 
@@ -480,7 +496,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                     <?php if (!empty($donation_data['document_path'])): ?>
                         <div class="current-document">
                             <strong>Current Document:</strong> 
-                            <a href="<?php echo $donation_data['document_path']; ?>" target="_blank" style="color: #007bff;">
+                            <a href="<?php echo htmlspecialchars($donation_data['document_path']); ?>" target="_blank" style="color: #007bff;">
                                 View Current Medical Report
                             </a>
                         </div>
@@ -491,8 +507,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 </div>
 
                 <div class="form-actions">
-                    <button class="btn btn-cancel" id="cancel-btn">Cancel</button>
-                    <button class="btn btn-save" id="save-btn" <?php echo !$is_eligible ? 'disabled' : ''; ?>>
+                    <button type="button" class="btn btn-cancel" id="cancel-btn">Cancel</button>
+                    <button type="button" class="btn btn-save" id="save-btn" <?php echo !$is_eligible ? 'disabled' : ''; ?>>
                         <?php echo $is_eligible ? 'Save Changes' : 'Not Eligible'; ?>
                     </button>
                 </div>

@@ -42,10 +42,29 @@ if ($last_donation) {
 }
 // ========== END COOLDOWN CHECK ==========
 
+// ========== CHECK FOR PENDING DONATIONS ==========
+$has_pending = false;
+$sql_check_pending = "SELECT COUNT(*) as pending_count FROM blood_donations 
+                      WHERE donor_id = ? AND status = 'Pending'";
+$stmt_pending = $conn->prepare($sql_check_pending);
+$stmt_pending->bind_param("i", $donor_id);
+$stmt_pending->execute();
+$pending_result = $stmt_pending->get_result();
+$pending_data = $pending_result->fetch_assoc();
+
+if ($pending_data['pending_count'] > 0) {
+    $has_pending = true;
+}
+// ========== END CHECK FOR PENDING DONATIONS ==========
+
 // Handle donation submission
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+    // Check if donor has pending request
+    if ($has_pending) {
+        $error = "You already have a pending donation request. Please wait for approval or cancel it before submitting a new one.";
+    }
     // Check eligibility before processing
-    if (!$is_eligible) {
+    else if (!$is_eligible) {
         $error = "You are not eligible to donate yet. You can donate again after " . 
                  date('M d, Y', strtotime($next_eligible_date)) . 
                  " ($days_remaining days remaining)";
@@ -121,7 +140,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         }
     }
 }
+
 $stmt_last->close();
+if (isset($stmt_pending)) {
+    $stmt_pending->close();
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -157,6 +180,15 @@ $stmt_last->close();
                     <div class="alert alert-error"><?php echo $error; ?></div>
                 <?php endif; ?>
 
+                <!-- PENDING DONATION WARNING -->
+                <?php if ($has_pending): ?>
+                    <div class="alert alert-error" style="background: #fff3cd; color: #856404; padding: 15px; border-radius: 5px; margin-bottom: 20px; border: 1px solid #ffeaa7;">
+                        <strong>⚠ You have a pending donation request.</strong><br>
+                        You cannot submit a new donation request until your pending request is processed.<br>
+                        Please wait for admin approval or <a href="donation_history.php" style="color: #0056b3;">cancel your pending request</a>.
+                    </div>
+                <?php endif; ?>
+
                 <!-- ELIGIBILITY NOTICE -->
                 <?php if (!$is_eligible): ?>
                     <div class="alert alert-error" style="background: #f8d7da; color: #721c24; padding: 15px; border-radius: 5px; margin-bottom: 20px; border: 1px solid #f5c6cb;">
@@ -165,7 +197,7 @@ $stmt_last->close();
                         <strong>Next eligible donation date: <?php echo date('M d, Y', strtotime($next_eligible_date)); ?></strong><br>
                         <small>WHO recommends waiting <?php echo $min_days_between_donations; ?> days between blood donations.</small>
                     </div>
-                <?php else: ?>
+                <?php elseif (!$has_pending): ?>
                     <div class="alert alert-success" style="background: #d4edda; color: #155724; padding: 15px; border-radius: 5px; margin-bottom: 20px; border: 1px solid #c3e6cb;">
                         <strong>You are eligible to donate blood!</strong><br>
                         <small>Last donation: <?php echo $last_donation ? date('M d, Y', strtotime($last_donation['donation_date'])) : 'No previous donations'; ?></small>
@@ -174,6 +206,7 @@ $stmt_last->close();
                 
                 <div class="profile-section">
                     <h2 class="section-title">Donation Information</h2>
+                    <?php if (!$has_pending && $is_eligible): ?>
                     <form method="POST" enctype="multipart/form-data" id="donationForm">
                         <!-- Donor Information (Read-only) -->
                         <div class="profile-info">
@@ -193,12 +226,12 @@ $stmt_last->close();
                         <div class="form-group">
                             <label for="donation_date">Preferred Donation Date *</label>
                             <input type="date" name="donation_date" id="donation_date" required 
-                                   min="<?php echo date('Y-m-d'); ?>" <?php echo !$is_eligible ? 'disabled' : ''; ?>>
+                                   min="<?php echo date('Y-m-d'); ?>">
                         </div>
                         
                         <div class="form-group">
                             <label for="quantity">Quantity to Donate (Units) *</label>
-                            <select name="quantity" id="quantity" required <?php echo !$is_eligible ? 'disabled' : ''; ?>>
+                            <select name="quantity" id="quantity" required>
                                 <option value="">Select Quantity</option>
                                 <option value="1">1 Unit</option>
                                 <option value="2">2 Units</option>
@@ -211,61 +244,56 @@ $stmt_last->close();
                         <div class="form-group">
                             <label>Are you feeling well and healthy today? *</label>
                             <div>
-                                <input type="radio" name="feel_well_today" value="Yes" checked <?php echo !$is_eligible ? 'disabled' : ''; ?>> Yes
-                                <input type="radio" name="feel_well_today" value="No" <?php echo !$is_eligible ? 'disabled' : ''; ?>> No
+                                <input type="radio" name="feel_well_today" value="Yes" checked> Yes
+                                <input type="radio" name="feel_well_today" value="No"> No
                             </div>
                         </div>
                         
                         <div class="form-group">
                             <label>Have you been sick in the last 2 weeks? *</label>
                             <div>
-                                <input type="radio" name="recent_sickness" value="No" checked <?php echo !$is_eligible ? 'disabled' : ''; ?>> No
-                                <input type="radio" name="recent_sickness" value="Yes" <?php echo !$is_eligible ? 'disabled' : ''; ?>> Yes
+                                <input type="radio" name="recent_sickness" value="No" checked> No
+                                <input type="radio" name="recent_sickness" value="Yes"> Yes
                             </div>
                         </div>
                         
                         <div class="form-group">
                             <label>Are you currently taking any medications? *</label>
                             <div>
-                                <input type="radio" name="medications" value="No" checked <?php echo !$is_eligible ? 'disabled' : ''; ?>> No
-                                <input type="radio" name="medications" value="Yes" <?php echo !$is_eligible ? 'disabled' : ''; ?>> Yes
+                                <input type="radio" name="medications" value="No" checked> No
+                                <input type="radio" name="medications" value="Yes"> Yes
                             </div>
                         </div>
                         
                         <div class="form-group">
                             <label>Have you traveled outside the country in the last 3 months? *</label>
                             <div>
-                                <input type="radio" name="travel_history" value="No" checked <?php echo !$is_eligible ? 'disabled' : ''; ?>> No
-                                <input type="radio" name="travel_history" value="Yes" <?php echo !$is_eligible ? 'disabled' : ''; ?>> Yes
+                                <input type="radio" name="travel_history" value="No" checked> No
+                                <input type="radio" name="travel_history" value="Yes"> Yes
                             </div>
                         </div>
                         
                         <div class="form-group">
                             <label>Have you engaged in high-risk activities? *</label>
                             <div>
-                                <input type="radio" name="high_risk_activity" value="No" checked <?php echo !$is_eligible ? 'disabled' : ''; ?>> No
-                                <input type="radio" name="high_risk_activity" value="Yes" <?php echo !$is_eligible ? 'disabled' : ''; ?>> Yes
+                                <input type="radio" name="high_risk_activity" value="No" checked> No
+                                <input type="radio" name="high_risk_activity" value="Yes"> Yes
                             </div>
                         </div>
 
                         <div class="form-group">
                             <label for="medical_document">Medical Document </label>
                             <input type="file" name="medical_document" id="medical_document" class="file-input" 
-                                   accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" <?php echo !$is_eligible ? 'disabled' : ''; ?>>
+                                   accept=".pdf,.jpg,.jpeg,.png,.doc,.docx">
                             <small>Upload medical report of blood test (PDF, JPG, PNG, DOC)</small>
                         </div>
 
                         <button type="submit" class="btn btn-primary" style="display: block; width: 100%; margin-top: 20px;" 
-                                id="submitBtn" <?php echo !$is_eligible ? 'disabled' : ''; ?>>
-                            <?php echo $is_eligible ? 'Submit Donation Request' : 'Not Eligible to Donate'; ?>
+                                id="submitBtn">
+                            Submit Donation Request
                         </button>
-                        
-                        <?php if (!$is_eligible): ?>
-                            <div style="color: #721c24; font-weight: bold; text-align: center; margin-top: 10px;">
-                                ⚠ Form disabled - You are not eligible to donate until <?php echo date('M d, Y', strtotime($next_eligible_date)); ?>
-                            </div>
-                        <?php endif; ?>
                     </form>
+                    <?php endif; ?>
                 </div>
             </div>
         </div>
@@ -275,82 +303,75 @@ $stmt_last->close();
         document.addEventListener('DOMContentLoaded', function() {
             const donationForm = document.getElementById('donationForm');
             
-            // Set minimum date to today
-            document.getElementById('donation_date').min = new Date().toISOString().split('T')[0];
-            
-            <?php if ($is_eligible): ?>
-            donationForm.addEventListener('submit', function(e) {
-                const donationDate = document.getElementById('donation_date').value;
-                const medicalDocument = document.getElementById('medical_document');
+            if (donationForm) {
+                // Set minimum date to today
+                document.getElementById('donation_date').min = new Date().toISOString().split('T')[0];
                 
-                let isValid = true;
-                let errorMessage = '';
-                
-                // Date validation
-                const today = new Date().toISOString().split('T')[0];
-                if (donationDate < today) {
-                    isValid = false;
-                    errorMessage = 'Donation date cannot be in the past.';
-                }
-                
-                // File validation
-                if (medicalDocument.files.length > 0) {
-                    const file = medicalDocument.files[0];
-                    const allowedTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
-                    const maxSize = 50 * 1024 * 1024; // 50MB
+                donationForm.addEventListener('submit', function(e) {
+                    const donationDate = document.getElementById('donation_date').value;
+                    const medicalDocument = document.getElementById('medical_document');
                     
-                    if (!allowedTypes.includes(file.type)) {
-                        isValid = false;
-                        errorMessage = 'Please upload only PDF, JPG, PNG, DOC, or DOCX files.';
-                    } else if (file.size > maxSize) {
-                        isValid = false;
-                        errorMessage = 'File size should be less than 50MB.';
-                    }
-                }
-                
-                // Health questionnaire validation
-                const feelWellToday = document.querySelector('input[name="feel_well_today"]:checked');
-                const recentSickness = document.querySelector('input[name="recent_sickness"]:checked');
-                const medications = document.querySelector('input[name="medications"]:checked');
-                const travelHistory = document.querySelector('input[name="travel_history"]:checked');
-                const highRiskActivity = document.querySelector('input[name="high_risk_activity"]:checked');
-                
-                if (!feelWellToday || !recentSickness || !medications || !travelHistory || !highRiskActivity) {
-                    isValid = false;
-                    errorMessage = 'Please answer all health questionnaire questions.';
-                }
-                
-                if (!isValid) {
-                    e.preventDefault();
-                    alert(errorMessage);
-                }
-            });
-            
-            // Real-time file validation
-            const medicalDocumentInput = document.getElementById('medical_document');
-            medicalDocumentInput.addEventListener('change', function() {
-                if (this.files.length > 0) {
-                    const file = this.files[0];
-                    const allowedTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
-                    const maxSize = 5 * 1024 * 1024;
+                    let isValid = true;
+                    let errorMessage = '';
                     
-                    if (!allowedTypes.includes(file.type)) {
-                        this.style.borderColor = 'red';
-                    } else if (file.size > maxSize) {
-                        this.style.borderColor = 'red';
-                    } else {
-                        this.style.borderColor = '';
+                    // Date validation
+                    const today = new Date().toISOString().split('T')[0];
+                    if (donationDate < today) {
+                        isValid = false;
+                        errorMessage = 'Donation date cannot be in the past.';
                     }
-                }
-            });
-            <?php else: ?>
-            // Disable form styling
-            const submitBtn = document.getElementById('submitBtn');
-            if (submitBtn) {
-                submitBtn.style.backgroundColor = '#6c757d';
-                submitBtn.style.cursor = 'not-allowed';
+                    
+                    // File validation
+                    if (medicalDocument.files.length > 0) {
+                        const file = medicalDocument.files[0];
+                        const allowedTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+                        const maxSize = 50 * 1024 * 1024; // 50MB
+                        
+                        if (!allowedTypes.includes(file.type)) {
+                            isValid = false;
+                            errorMessage = 'Please upload only PDF, JPG, PNG, DOC, or DOCX files.';
+                        } else if (file.size > maxSize) {
+                            isValid = false;
+                            errorMessage = 'File size should be less than 50MB.';
+                        }
+                    }
+                    
+                    // Health questionnaire validation
+                    const feelWellToday = document.querySelector('input[name="feel_well_today"]:checked');
+                    const recentSickness = document.querySelector('input[name="recent_sickness"]:checked');
+                    const medications = document.querySelector('input[name="medications"]:checked');
+                    const travelHistory = document.querySelector('input[name="travel_history"]:checked');
+                    const highRiskActivity = document.querySelector('input[name="high_risk_activity"]:checked');
+                    
+                    if (!feelWellToday || !recentSickness || !medications || !travelHistory || !highRiskActivity) {
+                        isValid = false;
+                        errorMessage = 'Please answer all health questionnaire questions.';
+                    }
+                    
+                    if (!isValid) {
+                        e.preventDefault();
+                        alert(errorMessage);
+                    }
+                });
+                
+                // Real-time file validation
+                const medicalDocumentInput = document.getElementById('medical_document');
+                medicalDocumentInput.addEventListener('change', function() {
+                    if (this.files.length > 0) {
+                        const file = this.files[0];
+                        const allowedTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+                        const maxSize = 5 * 1024 * 1024;
+                        
+                        if (!allowedTypes.includes(file.type)) {
+                            this.style.borderColor = 'red';
+                        } else if (file.size > maxSize) {
+                            this.style.borderColor = 'red';
+                        } else {
+                            this.style.borderColor = '';
+                        }
+                    }
+                });
             }
-            <?php endif; ?>
         });
     </script>
 </body>
