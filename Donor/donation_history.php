@@ -316,8 +316,7 @@ $result = $stmt->get_result();
                         <?php endif; ?>
                         
                         <div class="donation-actions">
-                            <a href="donation_details.php?id=<?php echo $row['donation_id']; ?>" class="btn btn-view">View Details</a>
-                            
+                           
                             <?php if ($row['status'] == 'Pending'): ?>
                                 <a href="edit_donation.php?id=<?php echo $row['donation_id']; ?>" class="btn btn-edit">Edit</a>
                                 <a href="donation_history.php?cancel_id=<?php echo $row['donation_id']; ?>" 
@@ -328,15 +327,15 @@ $result = $stmt->get_result();
                             <?php endif; ?>
                             
                             <?php if ($row['status'] == 'Approved'): ?>
-                                <span style="color: #17a2b8; font-weight: bold;">✓ Your donation has been approved!</span>
+                                <span style="color: #17a2b8; font-weight: bold;"> Your donation has been approved!</span>
                             <?php endif; ?>
                             
                             <?php if ($row['status'] == 'Completed'): ?>
-                                <span style="color: #28a745; font-weight: bold;">✓ Thank you for your donation!</span>
+                                <span style="color: #28a745; font-weight: bold;"> Thank you for your donation!</span>
                             <?php endif; ?>
                             
                             <?php if ($row['status'] == 'Rejected'): ?>
-                                <span style="color: #dc3545; font-weight: bold;">✗ Donation request was rejected</span>
+                                <span style="color: #dc3545; font-weight: bold;"> Donation request was rejected</span>
                             <?php endif; ?>
                         </div>
                     </div>

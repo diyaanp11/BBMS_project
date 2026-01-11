@@ -28,7 +28,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     
     if (isset($_POST['approve_donation'])) {
         // Get donation details
-        $sql = "SELECT blood_type, quantity FROM blood_donations WHERE id = ?";
+        $sql = "SELECT blood_type, quantity FROM blood_donations WHERE donation_id = ?";
         $stmt = $conn->prepare($sql);
         $stmt->bind_param("i", $donation_id);
         $stmt->execute();
@@ -36,7 +36,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         
         if ($donation) {
             // Update donation status
-            $sql1 = "UPDATE blood_donations SET status = 'Approved', admin_notes = ? WHERE id = ?";
+            $sql1 = "UPDATE blood_donations SET status = 'Approved', admin_notes = ? WHERE donation_id = ?";
             $stmt1 = $conn->prepare($sql1);
             $stmt1->bind_param("si", $admin_notes, $donation_id);
             
@@ -58,7 +58,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $stmt->close();
         
     } elseif (isset($_POST['reject_donation'])) {
-        $sql = "UPDATE blood_donations SET status = 'Rejected', admin_notes = ? WHERE id = ?";
+        $sql = "UPDATE blood_donations SET status = 'Rejected', admin_notes = ? WHERE donation_id = ?";
         $stmt = $conn->prepare($sql);
         $stmt->bind_param("si", $admin_notes, $donation_id);
         
@@ -446,7 +446,7 @@ $result = $conn->query($sql);
                     <div class="donation-card">
                         <div class="donation-header">
                             <div class="donation-id">
-                                Donation #<?php echo $row['id']; ?> - <?php echo $row['donor_name']; ?>
+                                Donation #<?php echo $row['donation_id']; ?> - <?php echo $row['donor_name']; ?>
                                 <div style="font-size: 0.8em; color: #666; margin-top: 5px;">
                                     Submitted: <?php echo date('M j, Y g:i A', strtotime($row['created_at'])); ?>
                                 </div>
@@ -475,11 +475,39 @@ $result = $conn->query($sql);
                             </div>
                         </div>
                         
-                        <!-- [Rest of your HTML from original file - keep as is] -->
                         <?php if ($health_data): ?>
                         <div class="health-section">
                             <label><strong>Health Questionnaire:</strong></label>
-                            <!-- ... health questions ... -->
+                            <div class="health-question">
+                                <strong>Feeling well today?</strong>
+                                <span style="color: <?php echo ($health_data['feel_well_today'] ?? 'No') == 'Yes' ? '#28a745' : '#dc3545'; ?>; font-weight: bold;">
+                                    <?php echo $health_data['feel_well_today'] ?? 'Not answered'; ?>
+                                </span>
+                            </div>
+                            <div class="health-question">
+                                <strong>Recent sickness (last 2 weeks)?</strong>
+                                <span style="color: <?php echo ($health_data['recent_sickness'] ?? 'No') == 'No' ? '#28a745' : '#dc3545'; ?>;">
+                                    <?php echo $health_data['recent_sickness'] ?? 'Not answered'; ?>
+                                </span>
+                            </div>
+                            <div class="health-question">
+                                <strong>Taking medications?</strong>
+                                <span style="color: <?php echo ($health_data['medications'] ?? 'No') == 'No' ? '#28a745' : '#dc3545'; ?>;">
+                                    <?php echo $health_data['medications'] ?? 'Not answered'; ?>
+                                </span>
+                            </div>
+                            <div class="health-question">
+                                <strong>Traveled outside country (last 3 months)?</strong>
+                                <span style="color: <?php echo ($health_data['travel_history'] ?? 'No') == 'No' ? '#28a745' : '#dc3545'; ?>;">
+                                    <?php echo $health_data['travel_history'] ?? 'Not answered'; ?>
+                                </span>
+                            </div>
+                            <div class="health-question">
+                                <strong>Engaged in high-risk activities?</strong>
+                                <span style="color: <?php echo ($health_data['high_risk_activity'] ?? 'No') == 'No' ? '#28a745' : '#dc3545'; ?>;">
+                                    <?php echo $health_data['high_risk_activity'] ?? 'Not answered'; ?>
+                                </span>
+                            </div>
                         </div>
                         <?php endif; ?>
                         
@@ -489,7 +517,19 @@ $result = $conn->query($sql);
                             $file_exists = file_exists($correct_path);
                         ?>
                         <div class="document-section">
-                            <!-- ... document section ... -->
+                            <label><strong>Medical Document:</strong></label>
+                            <div style="margin: 10px 0; color: #666;">
+                                <?php if ($file_exists): ?>
+                                    Document uploaded: <?php echo basename($document_path); ?>
+                                <?php else: ?>
+                                    <span style="color: #dc3545;">Document file not found at: <?php echo $correct_path; ?></span>
+                                <?php endif; ?>
+                            </div>
+                            <div class="document-actions">
+                                <?php if ($file_exists): ?>
+                                    <a href="<?php echo $correct_path; ?>" target="_blank" class="btn btn-view">View Document</a>
+                                <?php endif; ?>
+                            </div>
                         </div>
                         <?php endif; ?>
                         
@@ -502,9 +542,9 @@ $result = $conn->query($sql);
                         <?php if ($row['status'] == 'Pending'): ?>
                         <div class="action-form">
                             <form method="POST">
-                                <input type="hidden" name="donation_id" value="<?php echo $row['id']; ?>">
-                                <label for="admin_notes_<?php echo $row['id']; ?>">Admin Notes:</label>
-                                <textarea name="admin_notes" id="admin_notes_<?php echo $row['id']; ?>" class="admin-notes-input" placeholder="Add notes for approval/rejection..."><?php echo $row['admin_notes'] ?? ''; ?></textarea>
+                                <input type="hidden" name="donation_id" value="<?php echo $row['donation_id']; ?>">
+                                <label for="admin_notes_<?php echo $row['donation_id']; ?>">Admin Notes:</label>
+                                <textarea name="admin_notes" id="admin_notes_<?php echo $row['donation_id']; ?>" class="admin-notes-input" placeholder="Add notes for approval/rejection..."><?php echo $row['admin_notes'] ?? ''; ?></textarea>
                                 <div class="donation-actions">
                                     <button type="submit" name="approve_donation" class="btn btn-approve">Approve Donation</button>
                                     <button type="submit" name="reject_donation" class="btn btn-reject">Reject Donation</button>
@@ -563,4 +603,3 @@ $result = $conn->query($sql);
 <?php
 $conn->close();
 ?>
-   
