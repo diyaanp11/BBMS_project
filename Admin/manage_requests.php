@@ -17,7 +17,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     
     if (isset($_POST['approve_request'])) {
         // Get request details
-        $sql = "SELECT blood_type, quantity FROM blood_requests WHERE id = ?";
+        $sql = "SELECT blood_type, quantity FROM blood_requests WHERE request_id = ?";
         $stmt = $conn->prepare($sql);
         $stmt->bind_param("i", $request_id);
         $stmt->execute();
@@ -32,7 +32,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         
         if ($current_inventory >= $request['quantity']) {
             // Update request status
-            $sql1 = "UPDATE blood_requests SET status = 'Approved', admin_notes = ? WHERE id = ?";
+            $sql1 = "UPDATE blood_requests SET status = 'Approved', admin_notes = ? WHERE request_id = ?";
             $stmt1 = $conn->prepare($sql1);
             $stmt1->bind_param("si", $admin_notes, $request_id);
             
@@ -480,7 +480,7 @@ $result = $conn->query($sql);
                     <div class="request-card">
                         <div class="request-header">
                             <div class="request-id">
-                                Request #<?php echo $row['id']; ?> - <?php echo $row['recipient_name']; ?>
+                                Request #<?php echo $row['request_id']; ?> - <?php echo $row['recipient_name']; ?>
                                 <div style="font-size: 0.8em; color: #666; margin-top: 5px;">
                                     <?php echo date('M j, Y g:i A', strtotime($row['created_at'])); ?>
                                 </div>
@@ -578,9 +578,9 @@ $result = $conn->query($sql);
                         <?php if ($row['status'] == 'Pending'): ?>
                         <div class="action-form">
                             <form method="POST">
-                                <input type="hidden" name="request_id" value="<?php echo $row['id']; ?>">
-                                <label for="admin_notes_<?php echo $row['id']; ?>">Admin Notes:</label>
-                                <textarea name="admin_notes" id="admin_notes_<?php echo $row['id']; ?>" class="admin-notes-input" placeholder="Add notes for approval/rejection..."><?php echo $row['admin_notes'] ?? ''; ?></textarea>
+                                <input type="hidden" name="request_id" value="<?php echo $row['request_id']; ?>">
+                                <label for="admin_notes_<?php echo $row['request_id']; ?>">Admin Notes:</label>
+                                <textarea name="admin_notes" id="admin_notes_<?php echo $row['request_id']; ?>" class="admin-notes-input" placeholder="Add notes for approval/rejection..."><?php echo $row['admin_notes'] ?? ''; ?></textarea>
                                 <div class="request-actions">
                                     <button type="submit" name="approve_request" class="btn btn-approve">Approve Request</button>
                                     <button type="submit" name="reject_request" class="btn btn-reject">Reject Request</button>

@@ -17,7 +17,7 @@ $request_id = $_GET['id'] ?? 0;
 // Fetch existing request data
 $request_data = null;
 if ($request_id) {
-    $sql = "SELECT * FROM blood_requests WHERE id = ? AND recipient_id = ? AND status = 'Pending'";
+    $sql = "SELECT * FROM blood_requests WHERE request_id = ? AND recipient_id = ? AND status = 'Pending'";
 $stmt = $conn->prepare($sql);
 $stmt->bind_param("ii", $request_id, $recipient_id);
     $stmt->execute();
@@ -428,9 +428,9 @@ $stmt->bind_param("sssssssii", $patient_name, $hospital, $blood_type, $quantity,
                     </select>
                     <div id="blood-type-info" class="inventory-info">
                         <?php if ($current_inventory > 0): ?>
-                            <span class="inventory-good">✓ Current: <?php echo $current_blood_type; ?> has <?php echo $current_inventory; ?> units</span>
+                            <span class="inventory-good"> Current: <?php echo $current_blood_type; ?> has <?php echo $current_inventory; ?> units</span>
                         <?php else: ?>
-                            <span class="inventory-danger">✗ <?php echo $current_blood_type; ?> is currently out of stock</span>
+                            <span class="inventory-danger">Currently: <?php echo $current_blood_type; ?> is currently out of stock</span>
                         <?php endif; ?>
                     </div>
                 </div>
@@ -462,9 +462,9 @@ $stmt->bind_param("sssssssii", $patient_name, $hospital, $blood_type, $quantity,
                     </select>
                     <div id="quantity-info" class="inventory-info">
                         <?php if ($current_inventory > 0): ?>
-                            <span class="inventory-good">✓ Can request up to <?php echo min($current_inventory, 10); ?> units</span>
+                            <span class="inventory-good"> Can request up to <?php echo min($current_inventory, 10); ?> units</span>
                         <?php else: ?>
-                            <span class="inventory-danger">✗ Currently out of stock</span>
+                            <span class="inventory-danger">Currently out of stock</span>
                         <?php endif; ?>
                     </div>
                 </div>
@@ -504,20 +504,7 @@ $stmt->bind_param("sssssssii", $patient_name, $hospital, $blood_type, $quantity,
                     <button class="btn btn-save" id="save-btn">Save Changes</button>
                 </div>
                 
-                <!-- Current Inventory Display -->
-                <div style="margin-top: 30px; padding: 15px; background: #f8f9fa; border-radius: 8px; border: 1px solid #e9ecef;">
-                    <h4 style="color: #495057; margin-bottom: 10px;">Current Blood Inventory</h4>
-                    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;">
-                        <?php foreach ($blood_inventory as $type => $qty): 
-                            $status_class = $qty > 5 ? 'inventory-good' : ($qty > 0 ? 'inventory-warning' : 'inventory-danger');
-                        ?>
-                            <div class="<?php echo $status_class; ?>" style="padding: 6px; text-align: center; font-size: 0.9em;">
-                                <strong><?php echo $type; ?></strong><br>
-                                <?php echo $qty; ?> units
-                            </div>
-                        <?php endforeach; ?>
-                    </div>
-                </div>
+               
             </div>
         </div>
     </div>
@@ -556,7 +543,7 @@ $stmt->bind_param("sssssssii", $patient_name, $hospital, $blood_type, $quantity,
             
             // Update info display
             if (availableQty > 0) {
-                bloodTypeInfo.innerHTML = `<span class="inventory-good">✓ ${bloodType} has ${availableQty} units available</span>`;
+                bloodTypeInfo.innerHTML = `<span class="inventory-good">${bloodType} has ${availableQty} units available</span>`;
                 
                 // Add quantity options
                 for (let i = 1; i <= maxAllowed; i++) {
@@ -572,7 +559,7 @@ $stmt->bind_param("sssssssii", $patient_name, $hospital, $blood_type, $quantity,
                     quantitySelect.appendChild(option);
                 }
                 
-                quantityInfo.innerHTML = `<span class="inventory-good">✓ Can request up to ${maxAllowed} units</span>`;
+                quantityInfo.innerHTML = `<span class="inventory-good">Can request up to ${maxAllowed} units</span>`;
                 
                 // If current quantity exists but exceeds max, add it as disabled option
                 if (currentQuantity > maxAllowed && bloodType == currentBloodType) {
@@ -583,11 +570,11 @@ $stmt->bind_param("sssssssii", $patient_name, $hospital, $blood_type, $quantity,
                     warningOption.style.color = '#dc3545';
                     quantitySelect.appendChild(warningOption);
                     
-                    quantityInfo.innerHTML = `<span class="inventory-danger">✗ Only ${availableQty} units available (requested ${currentQuantity})</span>`;
+                    quantityInfo.innerHTML = `<span class="inventory-danger"> Only ${availableQty} units available (requested ${currentQuantity})</span>`;
                 }
             } else {
-                bloodTypeInfo.innerHTML = `<span class="inventory-danger">✗ ${bloodType} is out of stock</span>`;
-                quantityInfo.innerHTML = `<span class="inventory-danger">✗ Currently unavailable</span>`;
+                bloodTypeInfo.innerHTML = `<span class="inventory-danger"> ${bloodType} is out of stock</span>`;
+                quantityInfo.innerHTML = `<span class="inventory-danger">Currently unavailable</span>`;
                 
                 // If this is the current blood type, show current quantity as disabled
                 if (bloodType == currentBloodType) {

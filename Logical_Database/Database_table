@@ -72,10 +72,10 @@ CREATE TABLE blood_inventory (
 );
 
 -- Insert Default Blood Types
-INSERT IGNORE INTO blood_inventory (blood_type, quantity) VALUES 
+INSERT INTO blood_inventory (blood_type, quantity) VALUES 
 ('O+', 0), ('O-', 0), ('A+', 0), ('A-', 0), 
 ('B+', 0), ('B-', 0), ('AB+', 0), ('AB-', 0);
 
 -- Create Default Admin Account 
-INSERT IGNORE INTO admins (username, email, password) VALUES 
+INSERT INTO admins (username, email, password) VALUES 
 ('', '', '');

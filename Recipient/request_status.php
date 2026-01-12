@@ -254,7 +254,7 @@ $result = $stmt->get_result();
                     <?php while ($row = $result->fetch_assoc()): ?>
                     <div class="request-card">
                         <div class="request-header">
-                            <div class="request-id">Request #<?php echo $row['id']; ?></div>
+                            <div class="request-id">Request #<?php echo $row['request_id']; ?></div>
                             <div class="request-status status-<?php echo strtolower($row['status']); ?>">
                                 <?php echo $row['status']; ?>
                             </div>
@@ -301,10 +301,10 @@ $result = $stmt->get_result();
                         <?php endif; ?>
                         
                         <div class="request-actions">
-                            <a href="request_status.php?id=<?php echo $row['id']; ?>" class="btn btn-view">View Details</a>
+                            <a href="request_status.php?id=<?php echo $row['request_id']; ?>" class="btn btn-view">View Details</a>
                             <?php if ($row['status'] == 'Pending'): ?>
-                                <a href="edit_request.php?id=<?php echo $row['id']; ?>" class="btn btn-edit">Edit</a>
-                                <a href="request_status.php?delete_id=<?php echo $row['id']; ?>" class="btn btn-delete" 
+                                <a href="edit_request.php?id=<?php echo $row['request_id']; ?>" class="btn btn-edit">Edit</a>
+                                <a href="request_status.php?delete_id=<?php echo $row['request_id']; ?>" class="btn btn-delete" 
                                    onclick="return confirm('Are you sure you want to delete this request?')">Delete</a>
                             <?php endif; ?>
                         </div>
