@@ -55,7 +55,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $check_stmt->close();
         
     } elseif (isset($_POST['reject_request'])) {
-        $sql = "UPDATE blood_requests SET status = 'Rejected', admin_notes = ? WHERE id = ?";
+        $sql = "UPDATE blood_requests SET status = 'Rejected', admin_notes = ? WHERE request_id = ?";
         $stmt = $conn->prepare($sql);
         $stmt->bind_param("si", $admin_notes, $request_id);
         

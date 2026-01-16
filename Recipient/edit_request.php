@@ -14,18 +14,24 @@ $success = $error = "";
 // Get request ID from URL
 $request_id = $_GET['id'] ?? 0;
 
+// Validate request ID
+if (!$request_id || !is_numeric($request_id)) {
+    header("Location: request_status.php?error=invalid_request");
+    exit();
+}
+
 // Fetch existing request data
 $request_data = null;
 if ($request_id) {
     $sql = "SELECT * FROM blood_requests WHERE request_id = ? AND recipient_id = ? AND status = 'Pending'";
-$stmt = $conn->prepare($sql);
-$stmt->bind_param("ii", $request_id, $recipient_id);
+    $stmt = $conn->prepare($sql);
+    $stmt->bind_param("ii", $request_id, $recipient_id);
     $stmt->execute();
     $result = $stmt->get_result();
     $request_data = $result->fetch_assoc();
     
     if (!$request_data) {
-        header("Location: request_status.php");
+        header("Location: request_status.php?error=request_not_found");
         exit();
     }
 }
@@ -55,97 +61,169 @@ $current_inventory = $blood_inventory[$current_blood_type] ?? 0;
 
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-    $patient_name = trim($_POST['patient_name']);
-    $hospital = trim($_POST['hospital']);
-    $blood_type = trim($_POST['blood_type']);
-    $quantity = trim($_POST['quantity']);
-    $urgency = trim($_POST['urgency']);
-    $reason = trim($_POST['reason']);
+    // Debug logging
+    error_log("POST Data: " . print_r($_POST, true));
+    error_log("FILES Data: " . print_r($_FILES, true));
     
-    // Handle file upload - MANDATORY (keep existing if not changed, but validate if new one uploaded)
-    $document_path = $request_data['document_path'];
+    // Validate request ID
+    if (!$request_id || !is_numeric($request_id)) {
+        echo json_encode(['success' => false, 'message' => 'Invalid request ID']);
+        exit();
+    }
+    
+    $patient_name = trim($_POST['patient_name'] ?? '');
+    $hospital = trim($_POST['hospital'] ?? '');
+    $blood_type = trim($_POST['blood_type'] ?? '');
+    $quantity = intval($_POST['quantity'] ?? 0);
+    $urgency = trim($_POST['urgency'] ?? '');
+    $reason = trim($_POST['reason'] ?? '');
+    
+    // Handle file upload - MANDATORY (keep existing if not changed)
+    $document_path = $request_data['document_path'] ?? '';
     $file_upload_error = '';
 
     // Check if a new file is being uploaded
-    if (isset($_FILES['medical_document']) && $_FILES['medical_document']['error'] == UPLOAD_ERR_OK) {
-        if (!is_dir('documents')) {
-            mkdir('documents', 0777, true);
-        }
-        
-        $allowed_types = ['pdf', 'jpg', 'jpeg', 'png', 'doc', 'docx'];
-        $file_extension = strtolower(pathinfo($_FILES['medical_document']['name'], PATHINFO_EXTENSION));
-        $max_size = 50 * 1024 * 1024; // 50MB
-        
-        if (!in_array($file_extension, $allowed_types)) {
-            $file_upload_error = "Invalid file type. Please upload PDF, JPG, PNG, DOC, or DOCX files.";
-        } elseif ($_FILES['medical_document']['size'] > $max_size) {
-            $file_upload_error = "File size exceeds 50MB limit.";
-        } else {
-            // Generate unique filename
-            $document_name = time() . '_' . uniqid() . '_' . $_FILES['medical_document']['name'];
-            $document_path = 'documents/' . $document_name;
-            
-            // Delete old file if exists
-            if (!empty($request_data['document_path']) && file_exists($request_data['document_path'])) {
-                unlink($request_data['document_path']);
-            }
-            
-            if (!move_uploaded_file($_FILES['medical_document']['tmp_name'], $document_path)) {
-                $file_upload_error = "Error uploading medical document.";
-            }
-        }
-    } elseif (isset($_FILES['medical_document']) && $_FILES['medical_document']['error'] == UPLOAD_ERR_NO_FILE) {
-        // No new file uploaded, but we need to ensure there's already a document
-        if (empty($document_path)) {
-            $file_upload_error = "Medical document is required. Please upload a file.";
-        }
-    }
-
-    if (empty($file_upload_error) && !empty($patient_name) && !empty($hospital) && !empty($blood_type) && !empty($quantity) && !empty($urgency) && !empty($reason)) {
-        
-        // CHECK CURRENT INVENTORY BEFORE UPDATING
-        $check_sql = "SELECT quantity FROM blood_inventory WHERE blood_type = ?";
-        $check_stmt = $conn->prepare($check_sql);
-        $check_stmt->bind_param("s", $blood_type);
-        $check_stmt->execute();
-        $check_result = $check_stmt->get_result();
-        
-        if ($check_row = $check_result->fetch_assoc()) {
-            $available_quantity = $check_row['quantity'];
-            
-            if ($available_quantity < $quantity) {
-                echo json_encode(['success' => false, 'message' => "Insufficient inventory! Only $available_quantity units of $blood_type available."]);
-                exit();
-            } else {
-                $sql = "UPDATE blood_requests SET 
-        patient_name = ?, 
-        hospital_name = ?, 
-        blood_type = ?, 
-        quantity = ?, 
-        urgency = ?, 
-        reason = ?,
-        document_path = ?,
-        updated_at = NOW() 
-        WHERE id = ? AND recipient_id = ? AND status = 'Pending'";
-$stmt = $conn->prepare($sql);
-$stmt->bind_param("sssssssii", $patient_name, $hospital, $blood_type, $quantity, $urgency, $reason, $document_path, $request_id, $recipient_id);
-                
-                if ($stmt->execute()) {
-                    echo json_encode(['success' => true, 'message' => 'Blood request updated successfully!']);
-                    exit();
+    if (isset($_FILES['medical_document']) && $_FILES['medical_document']['error'] != UPLOAD_ERR_NO_FILE) {
+        if ($_FILES['medical_document']['error'] == UPLOAD_ERR_OK) {
+            // Create documents directory if it doesn't exist
+            if (!is_dir('documents')) {
+                if (!mkdir('documents', 0777, true)) {
+                    error_log("Failed to create documents directory");
                 } else {
-                    echo json_encode(['success' => false, 'message' => 'Error updating request. Please try again.']);
-                    exit();
+                    chmod('documents', 0777);
+                }
+            }
+            
+            $allowed_types = ['pdf', 'jpg', 'jpeg', 'png', 'doc', 'docx'];
+            $file_extension = strtolower(pathinfo($_FILES['medical_document']['name'], PATHINFO_EXTENSION));
+            $max_size = 50 * 1024 * 1024; // 50MB
+            
+            if (!in_array($file_extension, $allowed_types)) {
+                $file_upload_error = "Invalid file type. Please upload PDF, JPG, PNG, DOC, or DOCX files.";
+            } elseif ($_FILES['medical_document']['size'] > $max_size) {
+                $file_upload_error = "File size exceeds 50MB limit.";
+            } else {
+                // Generate unique filename
+                $document_name = time() . '_' . uniqid() . '_' . preg_replace('/[^a-zA-Z0-9._-]/', '_', $_FILES['medical_document']['name']);
+                $document_path = 'documents/' . $document_name;
+                
+                // Delete old file if exists
+                if (!empty($request_data['document_path']) && file_exists($request_data['document_path'])) {
+                    @unlink($request_data['document_path']);
+                }
+                
+                if (!move_uploaded_file($_FILES['medical_document']['tmp_name'], $document_path)) {
+                    $file_upload_error = "Error uploading medical document. Please try again.";
                 }
             }
         } else {
-            echo json_encode(['success' => false, 'message' => "Selected blood type '$blood_type' is not available in inventory."]);
+            // Handle other upload errors
+            $upload_errors = [
+                UPLOAD_ERR_INI_SIZE => 'The uploaded file exceeds the upload_max_filesize directive in php.ini',
+                UPLOAD_ERR_FORM_SIZE => 'The uploaded file exceeds the MAX_FILE_SIZE directive that was specified in the HTML form',
+                UPLOAD_ERR_PARTIAL => 'The uploaded file was only partially uploaded',
+                UPLOAD_ERR_NO_TMP_DIR => 'Missing a temporary folder',
+                UPLOAD_ERR_CANT_WRITE => 'Failed to write file to disk',
+                UPLOAD_ERR_EXTENSION => 'A PHP extension stopped the file upload'
+            ];
+            $file_upload_error = "File upload error: " . ($upload_errors[$_FILES['medical_document']['error']] ?? 'Unknown error');
+        }
+    }
+    // If no new file uploaded and no existing document, show error
+    elseif (empty($document_path)) {
+        $file_upload_error = "Medical document is required. Please upload a file.";
+    }
+
+    // Validate all fields
+    if (!empty($file_upload_error)) {
+        echo json_encode(['success' => false, 'message' => $file_upload_error]);
+        exit();
+    }
+    
+    if (empty($patient_name) || empty($hospital) || empty($blood_type) || empty($quantity) || empty($urgency) || empty($reason)) {
+        echo json_encode(['success' => false, 'message' => 'Please fill all required fields.']);
+        exit();
+    }
+    
+    // Validate data
+    if (!preg_match('/^[a-zA-Z\s]+$/', $patient_name)) {
+        echo json_encode(['success' => false, 'message' => 'Invalid patient name. Only letters and spaces allowed.']);
+        exit();
+    }
+    
+    if (!preg_match('/^[a-zA-Z0-9\s\-,.()&]+$/', $hospital)) {
+        echo json_encode(['success' => false, 'message' => 'Invalid hospital name.']);
+        exit();
+    }
+    
+    if (strlen($reason) < 10) {
+        echo json_encode(['success' => false, 'message' => 'Reason should be at least 10 characters.']);
+        exit();
+    }
+    
+    if ($quantity < 1 || $quantity > 10) {
+        echo json_encode(['success' => false, 'message' => 'Quantity must be between 1 and 10 units.']);
+        exit();
+    }
+    
+    // Check if blood type is valid
+    $valid_blood_types = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
+    if (!in_array($blood_type, $valid_blood_types)) {
+        echo json_encode(['success' => false, 'message' => 'Invalid blood type selected.']);
+        exit();
+    }
+    
+    // CHECK CURRENT INVENTORY BEFORE UPDATING
+    $check_sql = "SELECT quantity FROM blood_inventory WHERE blood_type = ?";
+    $check_stmt = $conn->prepare($check_sql);
+    $check_stmt->bind_param("s", $blood_type);
+    $check_stmt->execute();
+    $check_result = $check_stmt->get_result();
+    
+    if ($check_row = $check_result->fetch_assoc()) {
+        $available_quantity = $check_row['quantity'];
+        
+        if ($available_quantity < $quantity) {
+            echo json_encode(['success' => false, 'message' => "Insufficient inventory! Only $available_quantity units of $blood_type available."]);
             exit();
         }
     } else {
-        echo json_encode(['success' => false, 'message' => $file_upload_error ?: 'Please fill all required fields.']);
+        echo json_encode(['success' => false, 'message' => "Selected blood type '$blood_type' is not available in inventory."]);
         exit();
     }
+    
+    // Prepare the UPDATE query
+    $sql = "UPDATE blood_requests SET 
+            patient_name = ?, 
+            hospital_name = ?, 
+            blood_type = ?, 
+            quantity = ?, 
+            urgency = ?, 
+            reason = ?,
+            document_path = ?,
+            updated_at = NOW() 
+            WHERE request_id = ? AND recipient_id = ? AND status = 'Pending'";
+    
+    $stmt = $conn->prepare($sql);
+    if (!$stmt) {
+        error_log("Prepare failed: " . $conn->error);
+        echo json_encode(['success' => false, 'message' => 'Database error. Please try again.']);
+        exit();
+    }
+    
+    $stmt->bind_param("sssssssii", $patient_name, $hospital, $blood_type, $quantity, $urgency, $reason, $document_path, $request_id, $recipient_id);
+    
+    if ($stmt->execute()) {
+        if ($stmt->affected_rows > 0) {
+            echo json_encode(['success' => true, 'message' => 'Blood request updated successfully!']);
+        } else {
+            echo json_encode(['success' => false, 'message' => 'No changes were made or request could not be updated.']);
+        }
+    } else {
+        error_log("Execute failed: " . $stmt->error);
+        echo json_encode(['success' => false, 'message' => 'Error updating request. Please try again.']);
+    }
+    exit();
 }
 ?>
 
@@ -379,6 +457,18 @@ $stmt->bind_param("sssssssii", $patient_name, $hospital, $blood_type, $quantity,
             color: #dc3545;
             border-left: 3px solid #dc3545;
         }
+        
+        .field-error {
+            color: #dc3545;
+            font-size: 0.85em;
+            margin-top: 5px;
+            padding-left: 5px;
+        }
+        
+        .loading {
+            opacity: 0.7;
+            pointer-events: none;
+        }
     </style>
 </head>
 <body>
@@ -492,19 +582,25 @@ $stmt->bind_param("sssssssii", $patient_name, $hospital, $blood_type, $quantity,
                             <a href="<?php echo $request_data['document_path']; ?>" target="_blank" style="color: #007bff;">
                                 View Current Document
                             </a>
+                            <div style="margin-top: 5px; font-size: 0.85em; color: #666;">
+                                Leave empty to keep current document
+                            </div>
                         </div>
                     <?php endif; ?>
                     <input type="file" class="form-input file-input" id="edit-medical-document" 
-                           accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" required>
-                    <small><strong style="color: #dc3545;">Required:</strong> Upload new document or keep current one</small>
+                           accept=".pdf,.jpg,.jpeg,.png,.doc,.docx">
+                    <small style="color: #666;">
+                        <strong>Note:</strong> Upload new document or leave empty to keep current one
+                        <br>Accepted formats: PDF, JPG, PNG, DOC, DOCX (Max 50MB)
+                    </small>
                 </div>
                 
                 <div class="form-actions">
                     <button class="btn btn-cancel" id="cancel-btn">Cancel</button>
-                    <button class="btn btn-save" id="save-btn">Save Changes</button>
+                    <button class="btn btn-save" id="save-btn" disabled>Save Changes</button>
                 </div>
                 
-               
+                <input type="hidden" id="request-id" value="<?php echo $request_id; ?>">
             </div>
         </div>
     </div>
@@ -518,12 +614,14 @@ $stmt->bind_param("sssssssii", $patient_name, $hospital, $blood_type, $quantity,
         const reasonInput = document.getElementById('edit-reason');
         const bloodTypeSelect = document.getElementById('edit-blood-type');
         const quantitySelect = document.getElementById('edit-quantity');
+        const urgencySelect = document.getElementById('edit-urgency');
         const saveBtn = document.getElementById('save-btn');
         const cancelBtn = document.getElementById('cancel-btn');
         const notification = document.getElementById('notification');
         const medicalDocumentInput = document.getElementById('edit-medical-document');
         const bloodTypeInfo = document.getElementById('blood-type-info');
         const quantityInfo = document.getElementById('quantity-info');
+        const requestId = document.getElementById('request-id').value;
 
         // Store blood inventory from PHP
         const bloodInventory = <?php echo json_encode($blood_inventory); ?>;
@@ -593,6 +691,8 @@ $stmt->bind_param("sssssssii", $patient_name, $hospital, $blood_type, $quantity,
                     quantitySelect.appendChild(noStockOption);
                 }
             }
+            
+            validateForm();
         }
 
         // Initialize with current blood type
@@ -601,7 +701,6 @@ $stmt->bind_param("sssssssii", $patient_name, $hospital, $blood_type, $quantity,
         // Update quantity options when blood type changes
         bloodTypeSelect.addEventListener('change', function() {
             updateQuantityOptions(this.value);
-            validateForm();
         });
 
         // Real-time validation
@@ -640,48 +739,59 @@ $stmt->bind_param("sssssssii", $patient_name, $hospital, $blood_type, $quantity,
             validateForm();
         });
         
-        // File validation - MANDATORY
+        // File validation
         medicalDocumentInput.addEventListener('change', function() {
-            if (this.files.length === 0) {
+            const file = this.files[0];
+            
+            if (!file) {
+                // No new file selected, that's OK
+                this.style.borderColor = '';
+                clearFieldError(this);
+                validateForm();
+                return;
+            }
+            
+            const allowedTypes = [
+                'application/pdf',
+                'image/jpeg',
+                'image/jpg',
+                'image/png',
+                'application/msword',
+                'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+            ];
+            const maxSize = 50 * 1024 * 1024; // 50MB
+            
+            if (!allowedTypes.includes(file.type)) {
                 this.style.borderColor = 'red';
-                showFieldError(this, 'Medical document is required. Please upload a file.');
+                showFieldError(this, 'Please upload only PDF, JPG, PNG, DOC, or DOCX files');
+            } else if (file.size > maxSize) {
+                this.style.borderColor = 'red';
+                showFieldError(this, 'File size should be less than 50MB');
             } else {
-                const file = this.files[0];
-                const allowedTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
-                const maxSize = 50 * 1024 * 1024; // 50MB
-                
-                if (!allowedTypes.includes(file.type)) {
-                    this.style.borderColor = 'red';
-                    showFieldError(this, 'Please upload only PDF, JPG, PNG, DOC, or DOCX files');
-                } else if (file.size > maxSize) {
-                    this.style.borderColor = 'red';
-                    showFieldError(this, 'File size should be less than 50MB');
-                } else {
-                    this.style.borderColor = '';
-                    clearFieldError(this);
-                }
+                this.style.borderColor = '';
+                clearFieldError(this);
             }
             validateForm();
         });
 
-        // Update validation function
+        // Form validation function
         function validateForm() {
             const patientName = patientNameInput.value.trim();
             const hospital = hospitalInput.value.trim();
             const reason = reasonInput.value.trim();
-            const hasFile = medicalDocumentInput.files.length > 0;
             const bloodType = bloodTypeSelect.value;
             const quantity = quantitySelect.value;
+            const urgency = urgencySelect.value;
             
             const nameRegex = /^[a-zA-Z\s]+$/;
             const hospitalRegex = /^[a-zA-Z0-9\s\-,.()&]+$/;
             
-            const isPatientNameValid = nameRegex.test(patientName);
-            const isHospitalValid = hospitalRegex.test(hospital);
+            const isPatientNameValid = nameRegex.test(patientName) && patientName.length >= 2;
+            const isHospitalValid = hospitalRegex.test(hospital) && hospital.length >= 2;
             const isReasonValid = reason.length >= 10;
-            const isFileValid = hasFile;
             const isBloodTypeValid = bloodType !== '';
-            const isQuantityValid = quantity !== '';
+            const isQuantityValid = quantity !== '' && quantity > 0;
+            const isUrgencyValid = urgency !== '';
             
             // Check if selected quantity exceeds available inventory
             let isQuantityAvailable = true;
@@ -693,17 +803,27 @@ $stmt->bind_param("sssssssii", $patient_name, $hospital, $blood_type, $quantity,
                 }
             }
             
-            saveBtn.disabled = !(isPatientNameValid && isHospitalValid && isReasonValid && 
-                                isFileValid && isBloodTypeValid && isQuantityValid && isQuantityAvailable);
+            // File is optional for updates (can keep existing)
+            const isFormValid = isPatientNameValid && 
+                               isHospitalValid && 
+                               isReasonValid && 
+                               isBloodTypeValid && 
+                               isQuantityValid && 
+                               isUrgencyValid && 
+                               isQuantityAvailable;
+            
+            saveBtn.disabled = !isFormValid;
+            return isFormValid;
         }
         
         function showFieldError(input, message) {
             clearFieldError(input);
             const errorDiv = document.createElement('div');
             errorDiv.className = 'field-error';
-            errorDiv.style.color = 'red';
-            errorDiv.style.fontSize = '0.8em';
+            errorDiv.style.color = '#dc3545';
+            errorDiv.style.fontSize = '0.85em';
             errorDiv.style.marginTop = '5px';
+            errorDiv.style.paddingLeft = '5px';
             errorDiv.textContent = message;
             input.parentNode.appendChild(errorDiv);
         }
@@ -723,44 +843,20 @@ $stmt->bind_param("sssssssii", $patient_name, $hospital, $blood_type, $quantity,
         });
 
         // Save button
-        saveBtn.addEventListener('click', function() {
-            const patientName = document.getElementById('edit-patient-name').value;
-            const hospital = document.getElementById('edit-hospital').value;
-            const bloodType = document.getElementById('edit-blood-type').value;
-            const quantity = document.getElementById('edit-quantity').value;
-            const urgency = document.getElementById('edit-urgency').value;
-            const reason = document.getElementById('edit-reason').value;
-            const medicalDocument = document.getElementById('edit-medical-document');
+        saveBtn.addEventListener('click', async function() {
+            if (!validateForm()) {
+                showNotification('Please fix all validation errors before submitting.', 'error');
+                return;
+            }
+            
+            const patientName = patientNameInput.value.trim();
+            const hospital = hospitalInput.value.trim();
+            const bloodType = bloodTypeSelect.value;
+            const quantity = quantitySelect.value;
+            const urgency = urgencySelect.value;
+            const reason = reasonInput.value.trim();
+            const medicalDocument = medicalDocumentInput.files[0];
 
-            // Final validation before submitting
-            const nameRegex = /^[a-zA-Z\s]+$/;
-            const hospitalRegex = /^[a-zA-Z0-9\s\-,.()&]+$/;
-            
-            if (!nameRegex.test(patientName)) {
-                showNotification('Please enter a valid patient name (letters and spaces only)', 'error');
-                return;
-            }
-            
-            if (!hospitalRegex.test(hospital)) {
-                showNotification('Please enter a valid hospital name', 'error');
-                return;
-            }
-            
-            if (reason.length < 10) {
-                showNotification('Please provide a detailed reason (at least 10 characters)', 'error');
-                return;
-            }
-            
-            if (!bloodType) {
-                showNotification('Please select a blood type', 'error');
-                return;
-            }
-            
-            if (!quantity) {
-                showNotification('Please select quantity', 'error');
-                return;
-            }
-            
             // Check inventory one more time before submitting
             const availableQty = bloodInventory[bloodType] || 0;
             if (parseInt(quantity) > availableQty) {
@@ -768,8 +864,11 @@ $stmt->bind_param("sssssssii", $patient_name, $hospital, $blood_type, $quantity,
                 return;
             }
 
+            // Disable save button and show loading
+            const originalText = saveBtn.textContent;
             saveBtn.textContent = 'Saving...';
             saveBtn.disabled = true;
+            saveBtn.classList.add('loading');
 
             const formData = new FormData();
             formData.append('patient_name', patientName);
@@ -779,40 +878,51 @@ $stmt->bind_param("sssssssii", $patient_name, $hospital, $blood_type, $quantity,
             formData.append('urgency', urgency);
             formData.append('reason', reason);
             
-            if (medicalDocument.files[0]) {
-                formData.append('medical_document', medicalDocument.files[0]);
+            if (medicalDocument) {
+                formData.append('medical_document', medicalDocument);
             }
 
-            fetch('edit_request.php?id=<?php echo $request_id; ?>', {
-                method: 'POST',
-                body: formData
-            })
-            .then(response => response.json())
-            .then(data => {
+            // Debug: Log form data
+            console.log('Submitting form data:');
+            for (let pair of formData.entries()) {
+                console.log(pair[0] + ': ', pair[1]);
+            }
+
+            try {
+                const response = await fetch('edit_request.php?id=' + requestId, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
                 if (data.success) {
                     showNotification(data.message, 'success');
                     setTimeout(() => {
                         window.location.href = 'request_status.php?message=updated';
-                    }, 2000);
+                    }, 1500);
                 } else {
                     showNotification(data.message, 'error');
-                    saveBtn.textContent = 'Save Changes';
+                    saveBtn.textContent = originalText;
                     saveBtn.disabled = false;
+                    saveBtn.classList.remove('loading');
                 }
-            })
-            .catch(error => {
+            } catch (error) {
                 console.error('Error:', error);
-                showNotification('Error updating request. Please try again.', 'error');
-                saveBtn.textContent = 'Save Changes';
+                showNotification('Error updating request. Please check your connection and try again.', 'error');
+                saveBtn.textContent = originalText;
                 saveBtn.disabled = false;
-            });
+                saveBtn.classList.remove('loading');
+            }
         });
 
         // Notification function
         function showNotification(message, type = 'success') {
             notification.textContent = message;
             notification.className = 'notification ' + type + ' show';
-            setTimeout(() => notification.classList.remove('show'), 3000);
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, 3000);
         }
         
         // Initial validation
