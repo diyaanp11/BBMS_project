@@ -61,9 +61,7 @@ $current_inventory = $blood_inventory[$current_blood_type] ?? 0;
 
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-    // Debug logging
-    error_log("POST Data: " . print_r($_POST, true));
-    error_log("FILES Data: " . print_r($_FILES, true));
+    // Process form data
     
     // Validate request ID
     if (!$request_id || !is_numeric($request_id)) {

@@ -1,0 +1,38 @@
+# Sensitive files
+*.sql
+!.sql.example
+
+# Environment files
+.env
+.env.local
+.env.production
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+
+# Uploaded documents (keep directory but ignore files)
+Recipient/documents/*
+!Recipient/documents/.gitkeep
+
+# Backend test files
+Backend/test_*.php
+
+# Temporary files
+*.tmp
+*.bak
+
+# Build/cache files
+node_modules/
+vendor/

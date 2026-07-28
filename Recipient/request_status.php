@@ -14,14 +14,19 @@ $success = $error = "";
 // Handle delete request
 if (isset($_GET['delete_id'])) {
     $delete_id = $_GET['delete_id'];
-    $sql = "DELETE FROM blood_requests WHERE id = ? AND recipient_id = ? AND status = 'Pending'";
-$stmt = $conn->prepare($sql);
-$stmt->bind_param("ii", $delete_id, $recipient_id);
+    $sql = "DELETE FROM blood_requests WHERE request_id = ? AND recipient_id = ? AND status = 'Pending'";
+    $stmt = $conn->prepare($sql);
+    if ($stmt) {
+        $stmt->bind_param("ii", $delete_id, $recipient_id);
     
-    if ($stmt->execute()) {
-        $success = "Request deleted successfully!";
+        if ($stmt->execute()) {
+            $success = "Request deleted successfully!";
+        } else {
+            $error = "Error deleting request. Only pending requests can be deleted.";
+        }
+        $stmt->close();
     } else {
-        $error = "Error deleting request. Only pending requests can be deleted.";
+        $error = "Failed to prepare delete statement.";
     }
 }
 

@@ -32,14 +32,18 @@ if (isset($_GET['cancel_id'])) {
     // Only allow cancellation of pending donations
     $sql = "DELETE FROM blood_donations WHERE donation_id = ? AND donor_id = ? AND status = 'Pending'";
     $stmt = $conn->prepare($sql);
-    $stmt->bind_param("ii", $cancel_id, $donor_id);
-    
-    if ($stmt->execute()) {
-        $success = "Donation request cancelled successfully!";
+    if ($stmt) {
+        $stmt->bind_param("ii", $cancel_id, $donor_id);
+        
+        if ($stmt->execute()) {
+            $success = "Donation request cancelled successfully!";
+        } else {
+            $error = "Error cancelling donation request. Only pending donations can be cancelled.";
+        }
+        $stmt->close();
     } else {
-        $error = "Error cancelling donation request. Only pending donations can be cancelled.";
+        $error = "Failed to prepare cancel statement.";
     }
-    $stmt->close();
 }
 
 // Fetch donation history for this donor

@@ -16,9 +16,17 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         if ($result->num_rows == 1) {
             $admin = $result->fetch_assoc();
             
-            // NOTE: You should use password_hash() for storing passwords
-            // This is just for demo - in production, use password_verify()
-            if ($password === $admin['password']) {
+            // Verify password using password_verify
+            if (password_verify($password, $admin['password']) || $password === $admin['password']) {
+                // If plaintext match worked but verify didn't, rehash the password
+                if (!password_verify($password, $admin['password'])) {
+                    $newHash = password_hash($password, PASSWORD_DEFAULT);
+                    $updateStmt = $conn->prepare("UPDATE admins SET password = ? WHERE admin_id = ?");
+                    $updateStmt->bind_param("si", $newHash, $admin['admin_id']);
+                    $updateStmt->execute();
+                    $updateStmt->close();
+                }
+                
                 $_SESSION['admin_id'] = $admin['admin_id'];
                 $_SESSION['admin_email'] = $admin['email'];
                 $_SESSION['admin_name'] = $admin['username'];

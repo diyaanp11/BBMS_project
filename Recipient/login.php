@@ -44,6 +44,7 @@
                     <div class="input-with-icon">
                         <input type="password" id="recipient-login-password" name="password" placeholder="Enter your password" required>
                         <button type="button" class="password-toggle" onclick="togglePassword('recipient-login-password')">
+                            <i class="fas fa-eye"></i>
                         </button>
                     </div>
                 </div>
