@@ -93,6 +93,7 @@ Form validation on both client and server side
 
 
 **🙏 Acknowledgements**
+
 Supervisor: Mr. Bhuban Panthee
 
 Coordinator: Er. Aashish Neupane
@@ -102,4 +103,5 @@ Department of Computer Application, Butwal Kalika Campus
 Affiliated to: Tribhuvan University
 
 **📄 License**
+
 This project is created for educational purposes as a 4th semester college project at Butwal Kalika Campus, affiliated with Tribhuvan University.
